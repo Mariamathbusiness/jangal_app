@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid mt-4">
+    <h2>💰 Module Financier</h2>
+    <div class="row g-4 mt-2">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center p-5">
+                    <i class="bi bi-cash-coin text-success fs-1 mb-3"></i>
+                    <h4>Frais de Scolarité</h4>
+                    <p class="text-muted">Définir les montants attendus par niveau pour l'année en cours.</p>
+                    <a href="/financial/fees" class="btn btn-success">Gérer les frais</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center p-5">
+                    <i class="bi bi-receipt text-primary fs-1 mb-3"></i>
+                    <h4>Paiements & Reçus</h4>
+                    <p class="text-muted">Enregistrer les paiements des élèves et générer des reçus PDF officiels.</p>
+                    <a href="/financial/payments" class="btn btn-primary">Saisir un paiement</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+<div class="col-md-6">
+    <div class="card border-0 shadow-sm h-100">
+        <div class="card-body text-center p-5">
+            <i class="bi bi-bar-chart-line text-warning fs-1 mb-3"></i>
+            <h4>Situation Financière</h4>
+            <p class="text-muted">Vue d'ensemble des paiements par classe avec filtres et export Excel.</p>
+            <a href="{{ url_for('financial.financial_status') }}" class="btn btn-warning">
+                <i class="bi bi-people"></i> Voir la situation
+            </a>
+        </div>
+    </div>
+</div>

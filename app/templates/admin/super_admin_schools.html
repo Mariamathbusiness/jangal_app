@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid mt-4">
+    <h2>🏢 Gestion Multi-Écoles (Super Admin)</h2>
+    <p class="text-muted">Créez, modifiez et gérez la validité des établissements scolaires.</p>
+
+    <div class="row">
+        <!-- Formulaire -->
+        <div class="col-lg-4 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    {{ form.submit.label.text }}
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        {{ form.hidden_tag() }}
+                        {% if edit_id %}
+                            <input type="hidden" name="school_id" value="{{ edit_id }}">
+                        {% endif %}
+                        
+                        <div class="mb-2">{{ form.name.label(class="form-label") }} {{ form.name(class="form-control form-control-sm") }}</div>
+                        <div class="mb-2">{{ form.director_name.label(class="form-label") }} {{ form.director_name(class="form-control form-control-sm") }}</div>
+                        <div class="mb-2">{{ form.address.label(class="form-label") }} {{ form.address(class="form-control form-control-sm") }}</div>
+                        <div class="row mb-2">
+                            <div class="col-6">{{ form.phone.label(class="form-label") }} {{ form.phone(class="form-control form-control-sm") }}</div>
+                            <div class="col-6">{{ form.email.label(class="form-label") }} {{ form.email(class="form-control form-control-sm", type="email") }}</div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-6">{{ form.start_date.label(class="form-label") }} {{ form.start_date(class="form-control form-control-sm", type="date") }}</div>
+                            <div class="col-6">{{ form.end_date.label(class="form-label") }} {{ form.end_date(class="form-control form-control-sm", type="date") }}</div>
+                        </div>
+                        <div class="mb-3">{{ form.status.label(class="form-label") }} {{ form.status(class="form-select form-select-sm") }}</div>
+                        
+                        <div class="d-grid gap-2">
+                            {{ form.submit(class="btn btn-primary") }}
+                            {% if edit_id %}
+                                <a href="{{ url_for('admin.manage_schools') }}" class="btn btn-secondary">Annuler</a>
+                            {% endif %}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Liste des écoles -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-dark text-white">Liste des Établissements</div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Établissement</th>
+                                    <th>Validité</th>
+                                    <th>Statut</th>
+                                    <th class="text-end">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for school in schools %}
+                                <tr>
+                                    <td><strong>#{{ school.id }}</strong></td>
+                                    <td>
+                                        <div class="fw-bold">{{ school.name }}</div>
+                                        <small class="text-muted">{{ school.director_name }}</small>
+                                    </td>
+                                    <td>
+                                        <small>Du: {{ school.start_date }}</small><br>
+                                        <small>Au: {{ school.end_date }}</small>
+                                    </td>
+                                    <td>
+                                        {% if school.status == 'active' %}
+                                            <span class="badge bg-success">Actif</span>
+                                        {% elif school.status == 'suspended' %}
+                                            <span class="badge bg-warning text-dark">Suspendu</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">Expiré</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end">
+                                        <a href="{{ url_for('admin.manage_schools', edit=school.id) }}" class="btn btn-sm btn-outline-primary" title="Modifier">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        {% if school.id != 1 %}
+                                        <a href="{{ url_for('admin.delete_school', school_id=school.id) }}" class="btn btn-sm btn-outline-danger" title="Supprimer" onclick="return confirm('Supprimer cet établissement et toutes ses données ?')">
+                                            <i class="bi bi-trash"></i>
+                                        </a>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr><td colspan="5" class="text-center text-muted py-4">Aucun établissement enregistré.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid mt-4">
+    <h2>💰 Gestion des Frais de Scolarité</h2>
+    <p class="text-muted">Définissez les montants attendus pour chaque niveau pour l'année en cours.</p>
+
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">Définir de nouveaux frais</div>
+        <div class="card-body">
+            <form method="POST" class="row g-3">
+                {{ form.hidden_tag() }}
+                <div class="col-md-3">{{ form.level_id.label }} {{ form.level_id(class="form-select") }}</div>
+                <div class="col-md-3">{{ form.fee_type.label }} {{ form.fee_type(class="form-select") }}</div>
+                <div class="col-md-2">{{ form.amount.label }} {{ form.amount(class="form-control", placeholder="Ex: 50000") }}</div>
+                <div class="col-md-2">{{ form.due_date.label }} {{ form.due_date(class="form-control", type="date") }}</div>
+                <div class="col-md-2 d-flex align-items-end">{{ form.submit(class="btn btn-success w-100") }}</div>
+            </form>
+        </div>
+    </div>
+
+    <h4>Frais définis pour cette année</h4>
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>Niveau</th>
+                <th>Type de frais</th>
+                <th>Montant (FCFA)</th>
+                <th>Date limite</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for fee in fees %}
+            <tr>
+                <td><strong>{{ fee.level_name or 'Tous niveaux' }}</strong></td>
+                <td><span class="badge bg-info">{{ fee.fee_type | capitalize }}</span></td>
+                <td class="fw-bold">{{ "{:,.0f}".format(fee.amount) }} FCFA</td>
+                <td>{{ fee.due_date }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="text-center text-muted">Aucun frais défini pour le moment.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

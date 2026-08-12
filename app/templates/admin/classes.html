@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid mt-4">
+    <h2>🏫 Gestion des Classes</h2>
+    <div class="card mb-4"><div class="card-body">
+        <form method="POST" class="row g-3">{{ form.hidden_tag() }}
+            <div class="col-md-3">{{ form.label.label }} {{ form.label(class="form-control") }}</div>
+            <div class="col-md-3">{{ form.level_id.label }} {{ form.level_id(class="form-select") }}</div>
+            <div class="col-md-2">{{ form.room.label }} {{ form.room(class="form-control") }}</div>
+            <div class="col-md-2">{{ form.capacity.label }} {{ form.capacity(class="form-control", type="number") }}</div>
+            <div class="col-md-2 d-flex align-items-end">{{ form.submit(class="btn btn-success w-100") }}</div>
+        </form>
+    </div></div>
+    <table class="table table-hover"><thead><tr><th>Classe</th><th>Niveau</th><th>Salle</th><th>Capacité</th></tr></thead><tbody>
+        {% for c in classes %}<tr><td><strong>{{ c.label }}</strong></td><td>{{ c.level_name }}</td><td>{{ c.room or '-' }}</td><td>{{ c.capacity }}</td></tr>{% endfor %}
+    </tbody></table>
+</div>
+{% endblock %}

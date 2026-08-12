@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid mt-4">
+    <h2>📥 Importation en Masse des Élèves</h2>
+    {% if current_year %}
+        <p class="text-muted">Les élèves seront automatiquement inscrits pour l'année : <strong>{{ current_year.label }}</strong></p>
+    {% endif %}
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-primary text-white">
+                    <i class="bi bi-download"></i> 1. Télécharger le modèle Excel
+                </div>
+                <div class="card-body">
+                    <p>Pour garantir un import réussi, veuillez utiliser strictement ce modèle. Les colonnes sont : <em>Matricule, Nom, Prenom, Date_Naissance (AAAA-MM-JJ), Genre (M ou F), Classe</em>.</p>
+                    <a href="{{ url_for('admin.download_template') }}" class="btn btn-outline-primary">
+                        <i class="bi bi-file-earmark-excel"></i> Télécharger le modèle (.xlsx)
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <i class="bi bi-upload"></i> 2. Importer le fichier rempli
+                </div>
+                <div class="card-body">
+                   <form method="POST" enctype="multipart/form-data">
+    <!-- AJOUTEZ CETTE LIGNE POUR LA SÉCURITÉ CSRF -->
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    
+    <div class="mb-3">
+        <label for="excel_file" class="form-label">Sélectionner le fichier Excel (.xlsx)</label>
+        <input class="form-control" type="file" id="excel_file" name="excel_file" accept=".xlsx" required>
+    </div>
+    <button type="submit" class="btn btn-success w-100">
+        <i class="bi bi-cloud-upload"></i> Lancer l'importation
+    </button>
+</form>
+                    
+                    <div class="alert alert-warning mt-3 mb-0" style="font-size: 0.9em;">
+                        <i class="bi bi-exclamation-triangle"></i> <strong>Attention :</strong> Si un matricule existe déjà ou si une classe est mal orthographiée, la ligne sera ignorée et une erreur sera affichée.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

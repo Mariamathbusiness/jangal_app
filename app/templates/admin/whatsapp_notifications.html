@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid mt-4">
+    <h2>📱 Notifications WhatsApp</h2>
+    <p class="text-muted">Envoyez des alertes et rappels directement aux parents via WhatsApp.</p>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <i class="bi bi-whatsapp"></i> Nouvelle notification
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        {{ form.hidden_tag() }}
+                        
+                        <div class="mb-3">
+                            {{ form.message_type.label(class="form-label") }}
+                            {{ form.message_type(class="form-select") }}
+                        </div>
+                        
+                        <div class="mb-3">
+                            {{ form.student_id.label(class="form-label") }}
+                            {{ form.student_id(class="form-select") }}
+                        </div>
+                        
+                        <div id="custom_message_div" style="display:none;">
+                            {{ form.custom_message.label(class="form-label") }}
+                            {{ form.custom_message(class="form-control", rows=4, placeholder="Ex: Bonjour, la réunion des parents aura lieu demain à 15h.") }}
+                        </div>
+                        
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i> 
+                            Le numéro du parent doit être enregistré dans son profil utilisateur (format recommandé : 77XXXXXXX ou +22177XXXXXXX).
+                        </div>
+                        
+                        {{ form.submit(class="btn btn-success w-100") }}
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <i class="bi bi-lightning"></i> Informations
+                </div>
+                <div class="card-body">
+                    <h6>Comment ça marche ?</h6>
+                    <ul>
+                        <li>✅ Sélectionnez le type de message.</li>
+                        <li>✅ Choisissez l'élève concerné.</li>
+                        <li>✅ Le système récupère automatiquement le numéro du parent lié.</li>
+                        <li>✅ Le message est envoyé instantanément via l'API WhatsApp.</li>
+                    </ul>
+                    <hr>
+                    <h6>Configuration requise :</h6>
+                    <p class="small text-muted">
+                        Pour que cela fonctionne, vous devez configurer vos identifiants Twilio (Account SID, Auth Token, WhatsApp Number) dans un fichier <code>.env</code> à la racine du projet.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Afficher/masquer le champ message personnalisé selon le type
+document.querySelector('#message_type').addEventListener('change', function() {
+    const type = this.value;
+    document.querySelector('#custom_message_div').style.display = type === 'custom' ? 'block' : 'none';
+});
+</script>
+{% endblock %}

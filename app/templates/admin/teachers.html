@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid mt-4">
+    <h2>👨‍🏫 Gestion des Enseignants et Matières</h2>
+    <p class="text-muted">Attribuez les matières que chaque enseignant est habilité à enseigner.</p>
+
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">Liste des Enseignants</div>
+                <div class="list-group list-group-flush">
+                    {% for t in teachers %}
+                    <a href="{{ url_for('admin.manage_teachers', teacher_id=t.id) }}" class="list-group-item list-group-item-action {% if editing_teacher and editing_teacher.id == t.id %}active{% endif %}">
+                        {{ t.full_name or t.username }}
+                    </a>
+                    {% else %}
+                    <div class="list-group-item text-muted">Aucun enseignant enregistré.</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            {% if editing_teacher %}
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    Attribuer des matières à : <strong>{{ editing_teacher.full_name or editing_teacher.username }}</strong>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <input type="hidden" name="teacher_id" value="{{ editing_teacher.id }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Matières enseignées :</label>
+                            <select name="subjects" class="form-select" multiple size="10">
+                                {% for sub in all_subjects %}
+                                <option value="{{ sub.id }}" {% if sub.id in assigned_subject_ids %}selected{% endif %}>
+                                    {{ sub.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted mt-2 d-block">💡 Maintenez la touche Ctrl (ou Cmd sur Mac) pour sélectionner plusieurs matières.</small>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-success"><i class="bi bi-save"></i> Enregistrer</button>
+                        <a href="{{ url_for('admin.manage_teachers') }}" class="btn btn-secondary">Annuler</a>
+                    </form>
+                </div>
+            </div>
+            {% else %}
+            <div class="alert alert-info">Sélectionnez un enseignant à gauche pour lui attribuer des matières.</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

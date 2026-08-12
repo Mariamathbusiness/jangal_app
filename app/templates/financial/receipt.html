@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @page { size: A5; margin: 1cm; } /* Format reçu A5 */
+        body { font-family: 'Arial', sans-serif; font-size: 10pt; color: #000; }
+        .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
+        .header h1 { font-size: 14pt; margin: 0; text-transform: uppercase; }
+        .header h2 { font-size: 11pt; margin: 5px 0; font-weight: normal; }
+        
+        .receipt-title { text-align: center; font-size: 16pt; font-weight: bold; margin: 20px 0; text-decoration: underline; }
+        
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 30px; }
+        .info-item { margin-bottom: 8px; }
+        .info-label { font-weight: bold; }
+        
+        .amount-box { border: 2px solid #000; padding: 15px; text-align: center; margin: 20px 0; background-color: #f9f9f9; }
+        .amount-box h3 { margin: 0; font-size: 18pt; }
+        
+        .footer { margin-top: 40px; display: flex; justify-content: space-between; }
+        .signature { text-align: center; border-top: 1px solid #000; width: 40%; padding-top: 5px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>{{ payment.school_name | upper }}</h1>
+        <h2>{{ payment.school_address }}</h2>
+        <h2>Tél : {{ payment.school_phone or 'Non renseigné' }}</h2>
+    </div>
+
+    <div class="receipt-title">REÇU DE PAIEMENT N° {{ payment.receipt_number }}</div>
+
+    <div class="info-grid">
+        <div>
+            <div class="info-item"><span class="info-label">Date :</span> {{ payment.payment_date }}</div>
+            <div class="info-item"><span class="info-label">Élève :</span> {{ payment.last_name | upper }} {{ payment.first_name | capitalize }}</div>
+        </div>
+        <div>
+            <div class="info-item"><span class="info-label">Matricule :</span> {{ payment.matricule }}</div>
+            <div class="info-item"><span class="info-label">Mode de paiement :</span> {{ payment.payment_method | capitalize }}</div>
+        </div>
+    </div>
+
+    <div class="amount-box">
+        <p style="margin: 0 0 5px 0; font-size: 9pt; text-transform: uppercase;">Montant perçu</p>
+        <h3>{{ "{:,.0f}".format(payment.amount) }} FCFA</h3>
+    </div>
+
+    <p style="font-style: italic; font-size: 9pt; text-align: center; margin-top: 30px;">
+        Ce reçu est valable pour preuve de paiement. Conservez-le soigneusement.
+    </p>
+
+    <div class="footer">
+        <div class="signature">Le Payeur</div>
+        <div class="signature">Le Caissier / Directeur<br>(Cachet et Signature)</div>
+    </div>
+</body>
+</html>

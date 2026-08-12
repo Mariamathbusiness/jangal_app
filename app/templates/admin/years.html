@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <h2>📅 Gestion des Années Académiques</h2>
+    
+    <div class="card mb-4">
+        <div class="card-header">Nouvelle année</div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('admin.manage_years') }}">
+                {{ form.hidden_tag() }}
+                <div class="row">
+                    <div class="col-md-3">{{ form.label.label }} {{ form.label(class="form-control") }}</div>
+                    <div class="col-md-3">{{ form.start_date.label }} {{ form.start_date(class="form-control", type="date") }}</div>
+                    <div class="col-md-3">{{ form.end_date.label }} {{ form.end_date(class="form-control", type="date") }}</div>
+                    <div class="col-md-2 d-flex align-items-end">{{ form.is_current() }} {{ form.is_current.label(class="form-check-label ms-2") }}</div>
+                    <div class="col-md-1 d-flex align-items-end">{{ form.submit(class="btn btn-primary w-100") }}</div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <table class="table table-striped">
+        <thead><tr><th>Année</th><th>Début</th><th>Fin</th><th>Statut</th><th>Action</th></tr></thead>
+        <tbody>
+            {% for year in years %}
+            <tr>
+                <td>{{ year.label }}</td>
+                <td>{{ year.start_date }}</td>
+                <td>{{ year.end_date }}</td>
+                <td>{% if year.is_current %}<span class="badge bg-success">En cours</span>{% else %}<span class="badge bg-secondary">Archivée</span>{% endif %}</td>
+                <td>
+                    {% if not year.is_current %}
+                        <a href="{{ url_for('admin.set_current_year', year_id=year.id) }}" class="btn btn-sm btn-outline-primary">Définir comme actuelle</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

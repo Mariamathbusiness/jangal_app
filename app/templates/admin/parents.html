@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid mt-4">
+    <h2>👨‍👩‍👧 Gestion des Parents</h2>
+    <p class="text-muted">Créez des comptes parents et liez-les à leurs enfants.</p>
+
+    <!-- Formulaire de création -->
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">Créer un nouveau compte parent</div>
+        <div class="card-body">
+            <form method="POST" class="row g-3">
+                <input type="hidden" name="action" value="create">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="col-md-3">
+                    <label>Identifiant</label>
+                    <input type="text" name="username" class="form-control" required>
+                </div>
+                <div class="col-md-2">
+                    <label>Mot de passe</label>
+                    <input type="password" name="password" class="form-control" required>
+                </div>
+                <div class="col-md-3">
+                    <label>Nom complet</label>
+                    <input type="text" name="full_name" class="form-control" required>
+                </div>
+                <div class="col-md-2">
+                    <label>Email</label>
+                    <input type="email" name="email" class="form-control">
+                </div>
+                <div class="col-md-2">
+                    <label>Téléphone</label>
+                    <input type="text" name="phone" class="form-control">
+                </div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-success"><i class="bi bi-plus-circle"></i> Créer le parent</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Liste des parents -->
+    <div class="card">
+        <div class="card-header bg-primary text-white">Parents enregistrés</div>
+        <div class="card-body">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Identifiant</th>
+                        <th>Nom complet</th>
+                        <th>Email</th>
+                        <th>Téléphone</th>
+                        <th>Enfants liés</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in parents %}
+                    <tr>
+                        <td><strong>{{ p.username }}</strong></td>
+                        <td>{{ p.full_name or '-' }}</td>
+                        <td>{{ p.email or '-' }}</td>
+                        <td>{{ p.phone or '-' }}</td>
+                        <td>
+                            {% if p.student_ids %}
+                                {% set kids = p.student_ids | from_json %}
+                                <span class="badge bg-success">{{ kids | length }} enfant(s)</span>
+                            {% else %}
+                                <span class="badge bg-warning">Aucun</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('admin.link_parent', parent_user_id=p.user_id) }}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-link-45deg"></i> Lier des enfants
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="6" class="text-center text-muted">Aucun parent enregistré.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

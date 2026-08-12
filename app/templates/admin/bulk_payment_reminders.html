@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>📱 Rappel de Paiement en Masse</h2>
+        <a href="{{ url_for('admin.send_whatsapp_notification') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Retour
+        </a>
+    </div>
+
+    {% if current_year %}
+    <div class="alert alert-info">
+        <i class="bi bi-calendar-event"></i> Année scolaire : <strong>{{ current_year.label }}</strong>
+    </div>
+    {% endif %}
+
+    <!-- Résumé des élèves en retard -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm bg-danger text-white">
+                <div class="card-body text-center">
+                    <h6 class="card-title">Élèves en retard</h6>
+                    <h2 class="mb-0">{{ students_overdue | length }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm bg-warning text-dark">
+                <div class="card-body text-center">
+                    <h6 class="card-title">Total à recouvrer</h6>
+                    <h3 class="mb-0">{{ "{:,.0f}".format(students_overdue | sum(attribute='balance') | abs) }} FCFA</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm bg-success text-white">
+                <div class="card-body text-center">
+                    <h6 class="card-title">Parents avec téléphone</h6>
+                    <h2 class="mb-0">{{ students_overdue | length }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if results %}
+    <!-- Récapitulatif après envoi -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-primary text-white">
+            <i class="bi bi-check-circle"></i> Récapitulatif de l'envoi
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5 class="text-success">✅ Envoyés avec succès ({{ results.success | length }})</h5>
+                    {% if results.success %}
+                    <ul class="list-group">
+                        {% for r in results.success %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>{{ r.name }}</strong> <small class="text-muted">({{ r.class }})</small>
+                                <br><small>📱 {{ r.phone }}</small>
+                            </div>
+                            <span class="badge bg-success">{{ "{:,.0f}".format(r.amount) }} FCFA</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="text-muted">Aucun message envoyé.</p>
+                    {% endif %}
+                </div>
+                <div class="col-md-6">
+                    <h5 class="text-danger">❌ Échecs ({{ results.failed | length }})</h5>
+                    {% if results.failed %}
+                    <ul class="list-group">
+                        {% for r in results.failed %}
+                        <li class="list-group-item">
+                            <strong>{{ r.name }}</strong> <small class="text-muted">({{ r.class }})</small>
+                            <br><small class="text-danger">{{ r.error }}</small>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="text-muted">Aucun échec ! 🎉</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Liste des élèves concernés -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-people"></i> Élèves avec solde débiteur</span>
+            {% if students_overdue %}
+            <form method="POST" class="d-inline" onsubmit="return confirm('Êtes-vous sûr de vouloir envoyer {{ students_overdue | length }} rappel(s) de paiement ?');">
+                <input type="hidden" name="action" value="send_reminders">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-success btn-sm">
+                    <i class="bi bi-whatsapp"></i> Envoyer {{ students_overdue | length }} rappel(s)
+                </button>
+            </form>
+            {% endif %}
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Matricule</th>
+                            <th>Élève</th>
+                            <th>Classe</th>
+                            <th>Parent</th>
+                            <th>Téléphone</th>
+                            <th class="text-end">Dû</th>
+                            <th class="text-end">Payé</th>
+                            <th class="text-end">Reste à payer</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in students_overdue %}
+                        <tr class="table-danger">
+                            <td><strong>{{ s.matricule }}</strong></td>
+                            <td>{{ s.full_name }}</td>
+                            <td><span class="badge bg-info">{{ s.class_name }}</span></td>
+                            <td>{{ s.parent_name }}</td>
+                            <td><small>{{ s.parent_phone }}</small></td>
+                            <td class="text-end text-danger">{{ "{:,.0f}".format(s.amount_due) }}</td>
+                            <td class="text-end text-success">{{ "{:,.0f}".format(s.amount_paid) }}</td>
+                            <td class="text-end fw-bold text-danger">{{ "{:,.0f}".format(s.balance | abs) }} FCFA</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center text-success py-4">
+                                <i class="bi bi-check-circle fs-1"></i><br>
+                                <strong>Excellent ! Tous les élèves sont à jour dans leurs paiements.</strong>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

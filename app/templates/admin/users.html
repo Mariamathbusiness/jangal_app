@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid mt-4">
+    <h2>👥 Gestion des Utilisateurs</h2>
+    <p class="text-muted">
+        {% if current_user.role == 'super_admin' %}
+            Gérez les accès pour l'ensemble des établissements.
+        {% else %}
+            Gérez les accès pour votre établissement uniquement.
+        {% endif %}
+    </p>
+
+    <div class="row">
+        <!-- Formulaire -->
+        <div class="col-lg-4 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    {{ form.submit.label.text }}
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        {{ form.hidden_tag() }}
+                        {% if edit_id %}
+                            <input type="hidden" name="user_id" value="{{ edit_id }}">
+                        {% endif %}
+                        
+                        <div class="mb-2">{{ form.username.label(class="form-label") }} {{ form.username(class="form-control form-control-sm") }}</div>
+                        <div class="mb-2">
+                            {{ form.password.label(class="form-label") }} 
+                            {{ form.password(class="form-control form-control-sm", placeholder="Laisser vide pour ne pas changer") }}
+                        </div>
+                        <div class="mb-2">{{ form.full_name.label(class="form-label") }} {{ form.full_name(class="form-control form-control-sm") }}</div>
+                        <div class="row mb-2">
+                            <div class="col-6">{{ form.email.label(class="form-label") }} {{ form.email(class="form-control form-control-sm", type="email") }}</div>
+                            <div class="col-6">{{ form.phone.label(class="form-label") }} {{ form.phone(class="form-control form-control-sm") }}</div>
+                        </div>
+                        <div class="mb-2">{{ form.role.label(class="form-label") }} {{ form.role(class="form-select form-select-sm") }}</div>
+                        
+                        {% if current_user.role == 'super_admin' %}
+                            <div class="mb-3">{{ form.school_id.label(class="form-label") }} {{ form.school_id(class="form-select form-select-sm") }}</div>
+                        {% else %}
+                            <input type="hidden" name="school_id" value="{{ form.school_id.data }}">
+                        {% endif %}
+                        
+                        <div class="d-grid gap-2">
+                            {{ form.submit(class="btn btn-primary") }}
+                            {% if edit_id %}
+                                <a href="{{ url_for('admin.manage_users') }}" class="btn btn-secondary">Annuler</a>
+                            {% endif %}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Liste des utilisateurs -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-dark text-white">Liste des Utilisateurs</div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Nom complet</th>
+                                    <th>Identifiant</th>
+                                    <th>Rôle</th>
+                                    {% if current_user.role == 'super_admin' %}<th>Établissement</th>{% endif %}
+                                    <th class="text-end">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for user in users_list %}
+                                <tr>
+                                    <td>
+                                        <div class="fw-bold">{{ user.full_name or 'Non défini' }}</div>
+                                        <small class="text-muted">{{ user.email }}</small>
+                                    </td>
+                                    <td>{{ user.username }}</td>
+                                    <td>
+                                        <span class="badge bg-{{ 'warning text-dark' if user.role == 'super_admin' else 'info' if user.role == 'admin' else 'secondary' }}">
+                                            {{ user.role | replace('_', ' ') | capitalize }}
+                                        </span>
+                                    </td>
+                                    {% if current_user.role == 'super_admin' %}
+                                    <td><small>{{ user.school_name or 'Non assigné' }}</small></td>
+                                    {% endif %}
+                                    <td class="text-end">
+                                        <a href="{{ url_for('admin.manage_users', edit=user.id) }}" class="btn btn-sm btn-outline-primary" title="Modifier">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        {% if user.id != current_user.id %}
+                                        <a href="{{ url_for('admin.delete_user', user_id=user.id) }}" class="btn btn-sm btn-outline-danger" title="Supprimer" onclick="return confirm('Supprimer cet utilisateur définitivement ?')">
+                                            <i class="bi bi-trash"></i>
+                                        </a>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr><td colspan="{% if current_user.role == 'super_admin' %}5{% else %}4{% endif %}" class="text-center text-muted py-4">Aucun utilisateur trouvé.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

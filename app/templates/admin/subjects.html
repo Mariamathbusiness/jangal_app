@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid mt-4">
+    <h2>📖 Gestion des Matières</h2>
+    <div class="card mb-4"><div class="card-body">
+        <form method="POST" class="row g-3">{{ form.hidden_tag() }}
+            <div class="col-md-3">{{ form.name.label }} {{ form.name(class="form-control") }}</div>
+            <div class="col-md-2">{{ form.code.label }} {{ form.code(class="form-control") }}</div>
+            <div class="col-md-2">{{ form.coefficient.label }} {{ form.coefficient(class="form-control", step="0.5") }}</div>
+            <div class="col-md-2">{{ form.credits.label }} {{ form.credits(class="form-control", placeholder="0 si non-LMD") }}</div>
+            <div class="col-md-1 d-flex align-items-end mt-4">{{ form.is_ue() }} {{ form.is_ue.label(class="form-check-label ms-1") }}</div>
+            <div class="col-md-2 d-flex align-items-end">{{ form.submit(class="btn btn-info w-100") }}</div>
+        </form>
+    </div></div>
+    <table class="table table-striped"><thead><tr><th>Code</th><th>Matière</th><th>Coef.</th><th>Crédits</th><th>UE</th></tr></thead><tbody>
+        {% for sub in subjects %}
+        <tr><td><span class="badge bg-dark">{{ sub.code }}</span></td><td>{{ sub.name }}</td><td>{{ sub.coefficient }}</td><td>{{ sub.credits or '-' }}</td><td>{% if sub.is_ue %}✅{% endif %}</td></tr>
+        {% endfor %}
+    </tbody></table>
+</div>
+{% endblock %}

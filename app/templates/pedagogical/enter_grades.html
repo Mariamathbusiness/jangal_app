@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid mt-4">
+    <h2>📝 Saisie des Notes</h2>
+    {% if current_year %}
+        <p class="text-muted">Année scolaire : <strong>{{ current_year.label }}</strong></p>
+    {% endif %}
+
+    <!-- Formulaire de sélection -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">1. Sélectionner la classe, la matière et la période</div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('pedagogical.enter_grades') }}" class="row g-3">
+                {{ form.hidden_tag() }}
+                <div class="col-md-3">{{ form.class_id.label }} {{ form.class_id(class="form-select") }}</div>
+                <div class="col-md-3">{{ form.subject_id.label }} {{ form.subject_id(class="form-select") }}</div>
+                <div class="col-md-2">{{ form.term.label }} {{ form.term(class="form-select") }}</div>
+                <div class="col-md-2">{{ form.grade_type.label }} {{ form.grade_type(class="form-select") }}</div>
+                <div class="col-md-2 d-flex align-items-end">{{ form.submit(class="btn btn-success w-100") }}</div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tableau de saisie (affiché seulement si des données existent) -->
+    {% if students %}
+    <form method="POST" action="{{ url_for('pedagogical.save_grades') }}">
+        {{ form.hidden_tag() }} 
+        
+        <!-- Champs cachés pour savoir ce qu'on sauvegarde -->
+        <input type="hidden" name="class_id" value="{{ form.class_id.data }}">
+        <input type="hidden" name="subject_id" value="{{ form.subject_id.data }}">
+        <input type="hidden" name="term" value="{{ form.term.data }}">
+        <input type="hidden" name="type_note" value="{{ form.grade_type.data }}">
+
+        <div class="card">
+            <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                <span>2. Saisie des notes - <strong>{{ selected_term }}</strong></span>
+                <button type="submit" class="btn btn-light btn-sm fw-bold">💾 Enregistrer toutes les notes</button>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped mb-0 align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>#</th>
+                                <th>Matricule</th>
+                                <th>Nom et Prénom</th>
+                                <th style="width: 120px;">Note / 20</th>
+                                <th style="width: 110px;">Coefficient</th>
+                                <th>Appréciation</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for student in students %}
+                            <tr>
+                                <td>{{ loop.index }}</td>
+                                <td><small>{{ student.matricule }}</small></td>
+                                <td><strong>{{ student.last_name }}</strong> {{ student.first_name }}</td>
+                                <td>
+                                    <input type="number" step="0.25" min="0" max="20" 
+                                           name="grade_{{ student.enrollment_id }}" 
+                                           value="{{ student.grade_value if student.grade_value is not none and student.grade_value != '' else '' }}" 
+                                           class="form-control form-control-sm" placeholder="0-20">
+                                </td>
+                                <td>
+                                    <input type="number" step="0.5" min="0.5" max="10" 
+                                           name="coef_{{ student.enrollment_id }}" 
+                                           value="{{ student.coefficient if student.coefficient is not none else 1.0 }}" 
+                                           class="form-control form-control-sm">
+                                </td>
+                                <td>
+                                    <input type="text" name="comment_{{ student.enrollment_id }}" 
+                                           value="{{ student.comment or '' }}" 
+                                           class="form-control form-control-sm" placeholder="Ex: En progrès...">
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </form>
+    {% elif form.is_submitted() %}
+    <div class="alert alert-warning">
+        <i class="bi bi-exclamation-triangle"></i> Aucun élève trouvé dans cette classe pour l'année en cours, ou le formulaire contient des erreurs de validation.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

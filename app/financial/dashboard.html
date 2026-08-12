@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid mt-4">
+    <h2>💰 Module Financier</h2>
+    <div class="row g-4 mt-2">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center p-5">
+                    <i class="bi bi-cash-coin text-success fs-1 mb-3"></i>
+                    <h4>Frais & Scolarité</h4>
+                    <p class="text-muted">Définir les frais de scolarité par niveau et suivre les paiements.</p>
+                    <a href="#" class="btn btn-outline-success" onclick="alert('Module en cours de développement')">Gérer les frais</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center p-5">
+                    <i class="bi bi-receipt text-primary fs-1 mb-3"></i>
+                    <h4>Paiements & Reçus</h4>
+                    <p class="text-muted">Enregistrer les paiements des élèves et générer des reçus.</p>
+                    <a href="#" class="btn btn-outline-primary" onclick="alert('Module en cours de développement')">Saisir un paiement</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center p-5">
+                    <i class="bi bi-graph-up-arrow text-danger fs-1 mb-3"></i>
+                    <h4>Dépenses & Rapports</h4>
+                    <p class="text-muted">Suivre les dépenses de l'école et exporter les états financiers.</p>
+                    <a href="#" class="btn btn-outline-danger" onclick="alert('Module en cours de développement')">Voir les rapports</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="alert alert-info mt-4">
+        <i class="bi bi-info-circle-fill me-2"></i>
+        <strong>Note :</strong> Le module financier complet sera développé après la finalisation du module pédagogique (bulletins).
+    </div>
+</div>
+<div class="col-md-6">
+    <div class="card border-0 shadow-sm h-100">
+        <div class="card-body text-center p-5">
+            <i class="bi bi-bar-chart-line text-warning fs-1 mb-3"></i>
+            <h4>Situation Financière</h4>
+            <p class="text-muted">Vue d'ensemble des paiements par classe avec filtres et export Excel.</p>
+            <a href="{{ url_for('financial.financial_status') }}" class="btn btn-warning">
+                <i class="bi bi-people"></i> Voir la situation
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

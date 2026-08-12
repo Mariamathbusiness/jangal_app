@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid mt-4">
+    <h2>👨‍🎓 Gestion des Élèves</h2>
+    {% if current_year %}<p class="text-muted">Inscription pour l'année : <strong>{{ current_year.label }}</strong></p>{% endif %}
+    
+    <div class="card mb-4"><div class="card-body">
+        <form method="POST" enctype="multipart/form-data" class="row g-3">{{ form.hidden_tag() }}
+            <div class="col-md-2">{{ form.matricule.label }} {{ form.matricule(class="form-control") }}</div>
+            <div class="col-md-3">{{ form.last_name.label }} {{ form.last_name(class="form-control") }}</div>
+            <div class="col-md-3">{{ form.first_name.label }} {{ form.first_name(class="form-control") }}</div>
+            <div class="col-md-2">{{ form.date_of_birth.label }} {{ form.date_of_birth(class="form-control", type="date") }}</div>
+            <div class="col-md-2">{{ form.gender.label }} {{ form.gender(class="form-select") }}</div>
+            <div class="col-md-3">{{ form.class_id.label }} {{ form.class_id(class="form-select") }}</div>
+            <div class="col-md-3">{{ form.photo.label }} {{ form.photo(class="form-control") }}</div>
+            <div class="col-md-2 d-flex align-items-end">{{ form.submit(class="btn btn-primary w-100") }}</div>
+        </form>
+    </div></div>
+
+    <table class="table table-hover align-middle"><thead><tr><th>Photo</th><th>Matricule</th><th>Nom & Prénom</th><th>Genre</th><th>Classe</th><th>Actions</th> <!-- AJOUTEZ CETTE COLONNE --></tr></thead><tbody>
+        {% for s in students %}
+        <tr>
+            <td>{% if s.photo_path %}<img src="{{ url_for('static', filename='uploads/photos/' ~ s.photo_path) }}" width="40" height="40" class="rounded-circle">{% else %}<div class="bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center" style="width:40px;height:40px;">{{ s.first_name[0] }}</div>{% endif %}</td>
+            <td>{{ s.matricule }}</td>
+            <td><strong>{{ s.last_name }}</strong> {{ s.first_name }}</td>
+            <td>{{ '👦' if s.gender == 'M' else '👧' }}</td>
+            <td><span class="badge bg-primary">{{ s.class_name or 'Non assigné' }}</span></td>
+         <!-- AJOUTEZ CE BOUTON D'ACTION -->
+        <td>
+            <a href="{{ url_for('pedagogical.generate_bulletin', student_id=s.id) }}" class="btn btn-sm btn-danger" target="_blank">
+                <i class="bi bi-file-earmark-pdf"></i> Bulletin
+            </a>
+        </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" class="text-center text-muted">Aucun élève inscrit cette année.</td></tr>
+    {% endfor %}
+</tbody>
+    </tbody></table>
+</div>
+{% endblock %}

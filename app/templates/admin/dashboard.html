@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <h2>📊 Tableau de Bord Administratif</h2>
+    {% if current_year %}
+        <div class="alert alert-info">📅 Année académique en cours : <strong>{{ current_year.label }}</strong></div>
+    {% else %}
+        <div class="alert alert-warning">⚠️ Aucune année académique définie. <a href="{{ url_for('admin.manage_years') }}">En créer une</a>.</div>
+    {% endif %}
+
+    <div class="row mt-4">
+        <div class="col-md-4">
+            <div class="card text-white bg-primary mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">👨‍🎓 Élèves inscrits</h5>
+                    <p class="card-text display-4">{{ stats.students }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white bg-success mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">🏫 Classes</h5>
+                    <p class="card-text display-4">{{ stats.classes }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white bg-warning mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">👨‍🏫 Enseignants</h5>
+                    <p class="card-text display-4">{{ stats.teachers }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

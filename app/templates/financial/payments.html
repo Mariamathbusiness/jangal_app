@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid mt-4">
+    <h2>🧾 Enregistrement des Paiements</h2>
+    
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">Nouveau Paiement</div>
+        <div class="card-body">
+            <form method="POST" class="row g-3">
+                {{ form.hidden_tag() }}
+                <div class="col-md-4">{{ form.student_id.label }} {{ form.student_id(class="form-select") }}</div>
+                <div class="col-md-2">{{ form.amount.label }} {{ form.amount(class="form-control", placeholder="Ex: 50000") }}</div>
+                <div class="col-md-2">{{ form.payment_date.label }} {{ form.payment_date(class="form-control", type="date") }}</div>
+                <div class="col-md-2">{{ form.payment_method.label }} {{ form.payment_method(class="form-select") }}</div>
+                <div class="col-md-2 d-flex align-items-end">{{ form.submit(class="btn btn-primary w-100") }}</div>
+            </form>
+        </div>
+    </div>
+
+    <h4>Derniers paiements enregistrés</h4>
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>N° Reçu</th>
+                <th>Élève</th>
+                <th>Montant</th>
+                <th>Date</th>
+                <th>Mode</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in payments %}
+            <tr>
+                <td><strong>{{ p.receipt_number }}</strong></td>
+                <td>{{ p.last_name }} {{ p.first_name }} <small class="text-muted">({{ p.matricule }})</small></td>
+                <td class="text-success fw-bold">{{ "{:,.0f}".format(p.amount) }} FCFA</td>
+                <td>{{ p.payment_date }}</td>
+                <td>{{ p.payment_method | capitalize }}</td>
+                <td>
+                    <a href="{{ url_for('financial.generate_receipt', payment_id=p.id) }}" class="btn btn-sm btn-outline-danger" target="_blank">
+                        <i class="bi bi-file-earmark-pdf"></i> Reçu PDF
+                    </a>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="text-center text-muted">Aucun paiement enregistré.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

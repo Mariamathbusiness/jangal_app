@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid mt-4">
+    <h2>👨‍👩‍👧 Portail Parent</h2>
+    <p class="text-muted">Bienvenue, {{ current_user.full_name or current_user.username }}. Voici vos enfants inscrits.</p>
+
+    <div class="row g-4">
+        {% for child in children %}
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    {% if child.photo_path %}
+                        <img src="{{ url_for('static', filename='uploads/photos/' ~ child.photo_path) }}" class="rounded-circle mb-3" width="80" height="80">
+                    {% else %}
+                        <div class="bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3" style="width:80px;height:80px;font-size:2rem;">
+                            {{ child.first_name[0] }}
+                        </div>
+                    {% endif %}
+                    <h5 class="card-title">{{ child.last_name | upper }} {{ child.first_name | capitalize }}</h5>
+                    <p class="text-muted mb-1">{{ child.class_name }} ({{ child.level_name }})</p>
+                    <p class="badge bg-primary mb-3">Matricule : {{ child.matricule }}</p>
+                    <a href="{{ url_for('parent.child_details', student_id=child.id) }}" class="btn btn-outline-primary w-100">
+                        <i class="bi bi-eye"></i> Voir le dossier complet
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="col-12">
+            <div class="alert alert-info">Aucun enfant n'est actuellement lié à votre compte. Veuillez contacter l'administration de l'école.</div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

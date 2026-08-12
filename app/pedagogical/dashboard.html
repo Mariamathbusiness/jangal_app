@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid mt-4">
+    <h2>📚 Module Pédagogique</h2>
+    <div class="row g-4 mt-2">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center p-5">
+                    <i class="bi bi-pencil-square text-primary fs-1 mb-3"></i>
+                    <h4>Saisie des notes</h4>
+                    <p class="text-muted">Saisir les notes de Contrôle Continu et d'Examens par classe et par matière.</p>
+                    <a href="{{ url_for('pedagogical.enter_grades') }}" class="btn btn-primary">Accéder à la saisie</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center p-5">
+                    <i class="bi bi-file-earmark-pdf text-danger fs-1 mb-3"></i>
+                    <h4>Bulletins Scolaires</h4>
+                    <p class="text-muted">Générer et télécharger les bulletins officiels au format Ministère.</p>
+                    <a href="#" class="btn btn-outline-danger" onclick="alert('Fonctionnalité en cours de développement')">Générer les bulletins</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jangal_App - Demande d'Adhésion</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px 0;
+        }
+        .form-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 800px;
+            margin: 0 auto;
+            overflow: hidden;
+        }
+        .form-header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+        }
+        .form-header h1 {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .form-header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            margin: 0;
+        }
+        .form-body {
+            padding: 40px 30px;
+        }
+        .section-title {
+            color: #1e3c72;
+            font-weight: bold;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+            margin: 30px 0 20px 0;
+            font-size: 1.3rem;
+        }
+        .section-title:first-child {
+            margin-top: 0;
+        }
+        .form-label {
+            font-weight: 600;
+            color: #333;
+        }
+        .form-control, .form-select {
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 10px 15px;
+            transition: all 0.3s;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+        .btn-submit {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 15px 40px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 10px;
+            width: 100%;
+            transition: all 0.3s;
+        }
+        .btn-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(30, 60, 114, 0.3);
+            color: white;
+        }
+        .pricing-info {
+            background: #f8f9fa;
+            border-left: 4px solid #28a745;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .pricing-info h6 {
+            color: #28a745;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .footer-info {
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            color: #666;
+            font-size: 0.9rem;
+        }
+        @media (max-width: 768px) {
+            .form-header h1 { font-size: 1.8rem; }
+            .form-body { padding: 25px 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="form-container">
+            <div class="form-header">
+                <h1><i class="bi bi-mortarboard-fill"></i> Jangal_App</h1>
+                <p>La solution de gestion scolaire adaptée aux écoles sénégalaises</p>
+            </div>
+            
+            <div class="form-body">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                <div class="pricing-info">
+                    <h6><i class="bi bi-tag-fill"></i> Nos Tarifs Transparents</h6>
+                    <small>
+                        <strong>Installation & Formation :</strong> À partir de 75 000 FCFA<br>
+                        <strong>Maintenance annuelle :</strong> À partir de 50 000 FCFA/an<br>
+                        <em>Le prix exact dépend du nombre d'élèves de votre établissement.</em>
+                    </small>
+                </div>
+
+                <form method="POST">
+                    <!-- Section 1 : Informations sur l'établissement -->
+                    <h4 class="section-title"><i class="bi bi-building"></i> 1. Informations sur l'établissement</h4>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Nom de l'établissement *</label>
+                        <input type="text" name="school_name" class="form-control" required>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Type d'établissement *</label>
+                            <select name="school_type" class="form-select" required>
+                                <option value="">-- Sélectionner --</option>
+                                <option value="Maternelle">École maternelle</option>
+                                <option value="Élémentaire">École élémentaire</option>
+                                <option value="Primaire">École primaire (Maternelle + Élémentaire)</option>
+                                <option value="Collège">Collège</option>
+                                <option value="Lycée">Lycée</option>
+                                <option value="Complexe">Complexe scolaire (Plusieurs niveaux)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Nombre d'élèves *</label>
+                            <select name="student_count" class="form-select" required>
+                                <option value="">-- Sélectionner --</option>
+                                <option value="≤ 100">Moins de 100 élèves</option>
+                                <option value="101-300">101 à 300 élèves</option>
+                                <option value="301-600">301 à 600 élèves</option>
+                                <option value="> 600">Plus de 600 élèves</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Adresse complète de l'école *</label>
+                        <textarea name="address" class="form-control" rows="2" placeholder="Quartier, Ville, Repères..." required></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Année de création de l'école</label>
+                        <input type="text" name="creation_year" class="form-control" placeholder="Ex: 2005">
+                    </div>
+
+                    <!-- Section 2 : Personne à contacter -->
+                    <h4 class="section-title"><i class="bi bi-person-badge"></i> 2. Personne à contacter</h4>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Nom et prénom *</label>
+                            <input type="text" name="contact_name" class="form-control" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Fonction *</label>
+                            <select name="contact_role" class="form-select" required>
+                                <option value="">-- Sélectionner --</option>
+                                <option value="Directeur/Propriétaire">Directeur(trice) / Propriétaire</option>
+                                <option value="Secrétaire">Secrétaire de direction</option>
+                                <option value="Comptable">Comptable / Gestionnaire</option>
+                                <option value="Autre">Autre</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Numéro de téléphone (WhatsApp) *</label>
+                            <input type="tel" name="contact_phone" class="form-control" placeholder="77 XXX XX XX" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Adresse email</label>
+                            <input type="email" name="contact_email" class="form-control" placeholder="contact@ecole.sn">
+                        </div>
+                    </div>
+
+                    <!-- Section 3 : Situation actuelle -->
+                    <h4 class="section-title"><i class="bi bi-clipboard-data"></i> 3. Situation actuelle</h4>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Comment gérez-vous actuellement la scolarité ?</label>
+                        <select name="current_system" class="form-select">
+                            <option value="">-- Sélectionner --</option>
+                            <option value="Papier">Cahiers / Registres papier</option>
+                            <option value="Excel">Fichiers Excel / Word</option>
+                            <option value="Logiciel">Un autre logiciel</option>
+                            <option value="Mixte">Mixte (papier + numérique)</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Quels sont vos principaux défis ?</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="challenges" value="Impayés" id="c1">
+                            <label class="form-check-label" for="c1">Suivi des paiements / Impayés</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="challenges" value="Bulletins" id="c2">
+                            <label class="form-check-label" for="c2">Génération des bulletins de notes</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="challenges" value="Absences" id="c3">
+                            <label class="form-check-label" for="c3">Gestion des absences</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="challenges" value="Communication" id="c4">
+                            <label class="form-check-label" for="c4">Communication avec les parents</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="challenges" value="Emplois du temps" id="c5">
+                            <label class="form-check-label" for="c5">Emplois du temps</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="challenges" value="Archivage" id="c6">
+                            <label class="form-check-label" for="c6">Archivage des dossiers</label>
+                        </div>
+                    </div>
+
+                    <!-- Section 4 : Besoins et attentes -->
+                    <h4 class="section-title"><i class="bi bi-stars"></i> 4. Besoins et attentes</h4>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Fonctionnalités qui vous intéressent *</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="features_interest" value="Élèves/Classes" id="f1" required>
+                            <label class="form-check-label" for="f1">Gestion des élèves et classes</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="features_interest" value="Notes/Bulletins" id="f2">
+                            <label class="form-check-label" for="f2">Saisie des notes et bulletins</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="features_interest" value="Paiements" id="f3">
+                            <label class="form-check-label" for="f3">Suivi des paiements et reçus</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="features_interest" value="Alertes" id="f4">
+                            <label class="form-check-label" for="f4">Alertes absences/retards</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="features_interest" value="SMS" id="f5">
+                            <label class="form-check-label" for="f5">Envoi de SMS aux parents</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="features_interest" value="WhatsApp" id="f6">
+                            <label class="form-check-label" for="f6">Envoi WhatsApp aux parents</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="features_interest" value="Portail Parents" id="f7">
+                            <label class="form-check-label" for="f7">Portail parents (accès en ligne)</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="features_interest" value="Emplois du temps" id="f8">
+                            <label class="form-check-label" for="f8">Emplois du temps</label>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Quand souhaitez-vous démarrer ? *</label>
+                            <select name="start_timeline" class="form-select" required>
+                                <option value="">-- Sélectionner --</option>
+                                <option value="Dès que possible">Dès que possible</option>
+                                <option value="Prochaine rentrée">À la prochaine rentrée scolaire</option>
+                                <option value="Prochain trimestre">Au prochain trimestre</option>
+                                <option value="Plus d'infos">Je souhaite d'abord plus d'informations</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Avez-vous un ordinateur dédié ?</label>
+                            <select name="has_computer" class="form-select">
+                                <option value="">-- Sélectionner --</option>
+                                <option value="Bureau">Oui, un ordinateur de bureau</option>
+                                <option value="Portable">Oui, un ordinateur portable</option>
+                                <option value="À acquérir">Non, mais nous pouvons en acquérir un</option>
+                                <option value="Ne sais pas">Je ne sais pas</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label">Message ou question particulière</label>
+                        <textarea name="message" class="form-control" rows="3" placeholder="Dites-nous en plus sur vos besoins spécifiques..."></textarea>
+                    </div>
+
+                    <button type="submit" class="btn-submit">
+                        <i class="bi bi-send-fill"></i> Envoyer ma demande
+                    </button>
+                </form>
+            </div>
+            
+            <div class="footer-info">
+                <p class="mb-1"><strong>Jangal_App</strong> - La solution de gestion scolaire pour les écoles sénégalaises 🇸🇳</p>
+                <small>📞 Support : [77 349 59 59] | ✉️ Email : [mariamathbusiness@gmail.com]</small>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

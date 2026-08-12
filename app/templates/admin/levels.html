@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid mt-4">
+    <h2>📚 Gestion des Niveaux</h2>
+    <div class="card mb-4"><div class="card-body">
+        <form method="POST" class="row g-3">{{ form.hidden_tag() }}
+            <div class="col-md-5">{{ form.name.label }} {{ form.name(class="form-control") }}</div>
+            <div class="col-md-5">{{ form.level_type.label }} {{ form.level_type(class="form-select") }}</div>
+            <div class="col-md-2 d-flex align-items-end">{{ form.submit(class="btn btn-primary w-100") }}</div>
+        </form>
+    </div></div>
+    <table class="table table-striped"><thead><tr><th>Nom</th><th>Type</th></tr></thead><tbody>
+        {% for level in levels %}<tr><td>{{ level.name }}</td><td><span class="badge bg-info">{{ level.level_type }}</span></td></tr>{% endfor %}
+    </tbody></table>
+</div>
+{% endblock %}

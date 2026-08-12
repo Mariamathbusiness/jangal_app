@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>💰 Situation Financière par Classe</h2>
+        <a href="{{ url_for('financial.export_financial_status', class_id=selected_class_id) }}" class="btn btn-success">
+            <i class="bi bi-file-earmark-excel"></i> Exporter en Excel
+        </a>
+    </div>
+
+    <!-- Cartes de statistiques -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-primary text-white">
+                <div class="card-body text-center">
+                    <h6 class="card-title">Total Élèves</h6>
+                    <h2 class="mb-0">{{ stats.total_students }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-success text-white">
+                <div class="card-body text-center">
+                    <h6 class="card-title">À jour</h6>
+                    <h2 class="mb-0">{{ stats.up_to_date }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-warning text-dark">
+                <div class="card-body text-center">
+                    <h6 class="card-title">Partiel</h6>
+                    <h2 class="mb-0">{{ stats.partial }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-danger text-white">
+                <div class="card-body text-center">
+                    <h6 class="card-title">En retard</h6>
+                    <h2 class="mb-0">{{ stats.overdue }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Résumé financier -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <small class="text-muted">Total Dû</small>
+                    <h4 class="text-danger mb-0">{{ "{:,.0f}".format(stats.total_due) }} FCFA</h4>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <small class="text-muted">Total Encaissé</small>
+                    <h4 class="text-success mb-0">{{ "{:,.0f}".format(stats.total_paid) }} FCFA</h4>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <small class="text-muted">Solde Global</small>
+                    <h4 class="{{ 'text-success' if stats.total_balance >= 0 else 'text-danger' }} mb-0">
+                        {{ "{:,.0f}".format(stats.total_balance) }} FCFA
+                    </h4>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtre par classe -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3 align-items-end">
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">🔍 Filtrer par classe</label>
+                    <select name="class_id" class="form-select" onchange="this.form.submit()">
+                        <option value="">-- Toutes les classes --</option>
+                        {% for c in classes %}
+                        <option value="{{ c.id }}" {% if selected_class_id == c.id %}selected{% endif %}>
+                            {{ c.label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <a href="{{ url_for('financial.financial_status') }}" class="btn btn-outline-secondary w-100">
+                        <i class="bi bi-x-circle"></i> Réinitialiser
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tableau des élèves -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-dark text-white d-flex justify-content-between">
+            <span>
+                <i class="bi bi-people"></i> 
+                {% if selected_class_id %}
+                    Élèves de la classe sélectionnée
+                {% else %}
+                    Tous les élèves ({{ current_year.label }})
+                {% endif %}
+            </span>
+            <span class="badge bg-light text-dark">{{ financial_data | length }} élève(s)</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Matricule</th>
+                            <th>Nom & Prénom</th>
+                            <th>Classe</th>
+                            <th class="text-end">Dû (FCFA)</th>
+                            <th class="text-end">Payé (FCFA)</th>
+                            <th class="text-end">Solde (FCFA)</th>
+                            <th class="text-center">Statut</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in financial_data %}
+                        <tr class="{{ 'table-danger' if s.status == 'overdue' else 'table-warning' if s.status == 'partial' else '' }}">
+                            <td><strong>{{ s.matricule }}</strong></td>
+                            <td>
+                                <span class="{{ 'text-primary' if s.gender == 'M' else 'text-danger' }}">
+                                    {{ '👦' if s.gender == 'M' else '👧' }}
+                                </span>
+                                {{ s.full_name }}
+                            </td>
+                            <td><span class="badge bg-info">{{ s.class_name }}</span></td>
+                            <td class="text-end text-danger fw-bold">{{ "{:,.0f}".format(s.amount_due) }}</td>
+                            <td class="text-end text-success fw-bold">{{ "{:,.0f}".format(s.amount_paid) }}</td>
+                            <td class="text-end fw-bold {{ 'text-success' if s.balance >= 0 else 'text-danger' }}">
+                                {{ "{:,.0f}".format(s.balance) }}
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-{{ s.status_color }}">{{ s.status_label }}</span>
+                            </td>
+                            <td class="text-center">
+                                <a href="{{ url_for('financial.record_payment') }}" class="btn btn-sm btn-outline-success" title="Enregistrer un paiement">
+                                    <i class="bi bi-cash-coin"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="8" class="text-center text-muted py-4">Aucun élève trouvé.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
