@@ -1,1 +1,5 @@
-v
+.env
+venv/
+__pycache__/
+*.pyc
+jangal.db
