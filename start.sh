@@ -1,23 +1,15 @@
 #!/bin/bash
 set -e
-echo "=== D?BUT DU DIAGNOSTIC RENDER ==="
-echo "Dossier actuel : $(pwd)"
-echo "PATH actuel : $PATH"
-echo "Recherche de gunicorn dans le syst?me..."
-find /opt/render -name "gunicorn" -type f 2>/dev/null || echo "Non trouv? dans /opt/render"
-echo "Tentative d'activation de l'environnement virtuel..."
-if [ -f "/opt/render/project/venv/bin/activate" ]; then
-    source "/opt/render/project/venv/bin/activate"
-    echo "? Activ? : /opt/render/project/venv"
-elif [ -f "/opt/render/project/src/venv/bin/activate" ]; then
-    source "/opt/render/project/src/venv/bin/activate"
-    echo "? Activ? : /opt/render/project/src/venv"
-elif [ -f "venv/bin/activate" ]; then
-    source "venv/bin/activate"
-    echo "? Activ? : venv local"
+echo "=== D?marrage de Jangal_App ==="
+
+# 1. Forcer l'activation de l'environnement virtuel cach? de Render
+if [ -f "/opt/render/project/src/.venv/bin/activate" ]; then
+    source "/opt/render/project/src/.venv/bin/activate"
+    echo "? Environnement virtuel .venv activ? avec succ?s."
 else
-    echo "? Aucun venv trouv? !"
+    echo "? Erreur: .venv non trouv? dans /opt/render/project/src/"
+    exit 1
 fi
-echo "PATH apr?s activation : $PATH"
-echo "=== FIN DU DIAGNOSTIC ==="
+
+# 2. Lancer l'application avec gunicorn (qui est maintenant dans le PATH)
 exec gunicorn wsgi:app --bind 0.0.0.0:$PORT
