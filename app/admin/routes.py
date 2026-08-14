@@ -884,14 +884,14 @@ def send_whatsapp_notification():
         elif message_type == 'custom':
             success, msg = whatsapp.send_message(student['parent_phone'], form.custom_message.data)
             
-        flash(f"{'✅ Message envoyé avec succès !' if success else '❌ Échec de l\'envoi : ' + str(msg)}", 
-              "success" if success else "danger")
+        # ✅ CORRECTION : 8 espaces d'indentation (aligné avec les if/elif)
+        flash("✅ Message envoyé avec succès !" if success else f"❌ Échec de l'envoi : {msg}", "success" if success else "danger")
+        
         conn.close()
         return redirect(url_for('admin.send_whatsapp_notification'))
     
     conn.close()
     return render_template('admin/whatsapp_notifications.html', form=form)
-
 
 # ============================================================
 # 13. RAPPELS DE PAIEMENT EN MASSE
