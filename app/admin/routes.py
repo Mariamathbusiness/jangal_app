@@ -15,7 +15,7 @@ from werkzeug.security import generate_password_hash
 from app.admin.forms import (AcademicYearForm, LevelForm, ClassForm, StudentForm, SubjectForm, 
                              SchoolSettingsForm, SuperAdminSchoolForm, UserForm, 
                              WhatsAppNotificationForm, BulkBulletinForm)
-from app import get_db, execute_query)
+from app import get_db, execute_query
 from app.whatsapp_service import WhatsAppService
 
 admin_bp = Blueprint('admin', __name__, template_folder='../templates/admin')
@@ -25,9 +25,8 @@ admin_bp = Blueprint('admin', __name__, template_folder='../templates/admin')
 # FONCTIONS UTILITAIRES
 # ============================================================
 def get_current_academic_year(school_id=1):
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor, conn = execute_query("SELECT id, label FROM academic_years WHERE school_id = ? AND is_current = 1 LIMIT 1", (school_id,,))
+    query = "SELECT id, label FROM academic_years WHERE school_id = ? AND is_current = 1 LIMIT 1"
+    cursor, conn = execute_query(query, (school_id,))
     year = cursor.fetchone()
     conn.close()
     return year
@@ -62,19 +61,21 @@ def super_admin_required(f):
 @login_required
 @admin_required
 def dashboard():
-    conn = get_db()
-    cursor = conn.cursor()
     current_year = get_current_academic_year(current_user.school_id or 1)
     year_id = current_year['id'] if current_year else None
     
     stats = {'students': 0, 'classes': 0, 'teachers': 0}
     if year_id:
-        cursor, conn = execute_query("SELECT COUNT(DISTINCT e.student_id) FROM enrollments e WHERE e.academic_year_id = ? AND e.status = 'active'", (year_id,,))
+        query = "SELECT COUNT(DISTINCT e.student_id) FROM enrollments e WHERE e.academic_year_id = ? AND e.status = 'active'"
+        cursor, conn = execute_query(query, (year_id,))
         stats['students'] = cursor.fetchone()[0]
+        conn.close()
         
-    cursor.execute("SELECT COUNT(id) FROM classes")
+    cursor, conn = execute_query("SELECT COUNT(id) FROM classes", ())
     stats['classes'] = cursor.fetchone()[0]
-    cursor.execute("SELECT COUNT(id) FROM users WHERE role = 'teacher'")
+    conn.close()
+    
+    cursor, conn = execute_query("SELECT COUNT(id) FROM users WHERE role = 'teacher'", ())
     stats['teachers'] = cursor.fetchone()[0]
     conn.close()
     
@@ -89,15 +90,16 @@ def dashboard():
 @admin_required
 def manage_years():
     form = AcademicYearForm()
-    conn = get_db()
-    cursor = conn.cursor()
     
     if form.validate_on_submit():
         if form.is_current.data:
-            cursor, conn = execute_query("UPDATE academic_years SET is_current = 0 WHERE school_id = ?", (current_user.school_id or 1,,))
+            query = "UPDATE academic_years SET is_current = 0 WHERE school_id = ?"
+            cursor, conn = execute_query(query, (current_user.school_id or 1,))
+            conn.commit()
         
-        cursor.execute("""INSERT INTO academic_years (uuid, school_id, label, start_date, end_date, is_current)
-                          VALUES (?, ?, ?, ?, ?, ?)""", (
+        query = """INSERT INTO academic_years (uuid, school_id, label, start_date, end_date, is_current)
+                   VALUES (?, ?, ?, ?, ?, ?)"""
+        cursor, conn = execute_query(query, (
             str(uuid.uuid4()), current_user.school_id or 1, form.label.data,
             form.start_date.data.strftime('%Y-%m-%d'), form.end_date.data.strftime('%Y-%m-%d'),
             1 if form.is_current.data else 0
@@ -106,7 +108,7 @@ def manage_years():
         flash('Année académique ajoutée avec succès.', 'success')
         return redirect(url_for('admin.manage_years'))
     
-    cursor.execute("SELECT * FROM academic_years ORDER BY start_date DESC")
+    cursor, conn = execute_query("SELECT * FROM academic_years ORDER BY start_date DESC", ())
     years = cursor.fetchall()
     conn.close()
     return render_template('admin/years.html', form=form, years=years)
@@ -115,12 +117,15 @@ def manage_years():
 @login_required
 @admin_required
 def set_current_year(year_id):
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor, conn = execute_query("UPDATE academic_years SET is_current = 0 WHERE school_id = ?", (current_user.school_id or 1,,))
-    cursor, conn = execute_query("UPDATE academic_years SET is_current = 1 WHERE id = ? AND school_id = ?", (year_id, current_user.school_id or 1,))
+    query = "UPDATE academic_years SET is_current = 0 WHERE school_id = ?"
+    cursor, conn = execute_query(query, (current_user.school_id or 1,))
+    conn.commit()
+    
+    query = "UPDATE academic_years SET is_current = 1 WHERE id = ? AND school_id = ?"
+    cursor, conn = execute_query(query, (year_id, current_user.school_id or 1))
     conn.commit()
     conn.close()
+    
     flash('Année en cours mise à jour.', 'success')
     return redirect(url_for('admin.manage_years'))
 
@@ -133,16 +138,16 @@ def set_current_year(year_id):
 @admin_required
 def manage_levels():
     form = LevelForm()
-    conn = get_db()
-    cursor = conn.cursor()
     
     if form.validate_on_submit():
-        cursor, conn = execute_query("INSERT INTO levels (uuid, school_id, name, level_type) VALUES (?, ?, ?, ?)", (str(uuid.uuid4(,)), current_user.school_id or 1, form.name.data, form.level_type.data))
+        query = "INSERT INTO levels (uuid, school_id, name, level_type) VALUES (?, ?, ?, ?)"
+        cursor, conn = execute_query(query, (str(uuid.uuid4()), current_user.school_id or 1, form.name.data, form.level_type.data))
         conn.commit()
         flash('Niveau ajouté avec succès.', 'success')
         return redirect(url_for('admin.manage_levels'))
     
-    cursor, conn = execute_query("SELECT * FROM levels WHERE school_id = ?", (current_user.school_id or 1,,))
+    query = "SELECT * FROM levels WHERE school_id = ?"
+    cursor, conn = execute_query(query, (current_user.school_id or 1,))
     levels = cursor.fetchall()
     conn.close()
     return render_template('admin/levels.html', form=form, levels=levels)
@@ -156,20 +161,22 @@ def manage_levels():
 @admin_required
 def manage_classes():
     form = ClassForm()
-    conn = get_db()
-    cursor = conn.cursor()
     
-    cursor, conn = execute_query("SELECT id, name FROM levels WHERE school_id = ?", (current_user.school_id or 1,,))
+    query = "SELECT id, name FROM levels WHERE school_id = ?"
+    cursor, conn = execute_query(query, (current_user.school_id or 1,))
     form.level_id.choices = [(row['id'], row['name']) for row in cursor.fetchall()]
+    conn.close()
     
     if form.validate_on_submit():
-        cursor, conn = execute_query("INSERT INTO classes (uuid, level_id, label, room, capacity) VALUES (?, ?, ?, ?, ?)", (str(uuid.uuid4(,)), form.level_id.data, form.label.data, form.room.data, form.capacity.data))
+        query = "INSERT INTO classes (uuid, level_id, label, room, capacity) VALUES (?, ?, ?, ?, ?)"
+        cursor, conn = execute_query(query, (str(uuid.uuid4()), form.level_id.data, form.label.data, form.room.data, form.capacity.data))
         conn.commit()
         flash('Classe ajoutée avec succès.', 'success')
         return redirect(url_for('admin.manage_classes'))
     
-    cursor.execute("""SELECT c.id, c.label, c.room, c.capacity, l.name as level_name 
-                      FROM classes c LEFT JOIN levels l ON c.level_id = l.id ORDER BY c.label ASC""")
+    query = """SELECT c.id, c.label, c.room, c.capacity, l.name as level_name 
+               FROM classes c LEFT JOIN levels l ON c.level_id = l.id ORDER BY c.label ASC"""
+    cursor, conn = execute_query(query, ())
     classes = cursor.fetchall()
     conn.close()
     return render_template('admin/classes.html', form=form, classes=classes)
@@ -183,13 +190,12 @@ def manage_classes():
 @admin_required
 def manage_students():
     form = StudentForm()
-    conn = get_db()
-    cursor = conn.cursor()
     current_year = get_current_academic_year(current_user.school_id or 1)
     year_id = current_year['id'] if current_year else None
     
-    cursor.execute("SELECT id, label FROM classes ORDER BY label ASC")
+    cursor, conn = execute_query("SELECT id, label FROM classes ORDER BY label ASC", ())
     form.class_id.choices = [(row['id'], row['label']) for row in cursor.fetchall()]
+    conn.close()
     
     if form.validate_on_submit():
         matricule = form.matricule.data.strip() if form.matricule.data else ""
@@ -197,42 +203,47 @@ def manage_students():
             year_prefix = current_year['label'][:4] if current_year else '2024'
             while True:
                 new_matricule = f"ELV-{year_prefix}-{random.randint(1000, 9999)}"
-                cursor, conn = execute_query("SELECT id FROM students WHERE matricule = ?", (new_matricule,,))
+                cursor, conn = execute_query("SELECT id FROM students WHERE matricule = ?", (new_matricule,))
                 if not cursor.fetchone():
                     matricule = new_matricule
+                    conn.close()
                     break
+                conn.close()
         
         photo_filename = None
         if form.photo.data:
-            photo_filename = f"{uuid.uuid4().hex}_{form.photo.data.filename}"
+            photo_filename = f"{uuid.uuid4().hex}_{secure_filename(form.photo.data.filename)}"
             form.photo.data.save(os.path.join(current_app.config['UPLOAD_FOLDER'], 'photos', photo_filename))
         
-        cursor.execute("""INSERT INTO students (uuid, school_id, matricule, last_name, first_name, date_of_birth, gender, photo_path)
-                          VALUES (?, ?, ?, ?, ?, ?, ?, ?)""", (
+        query = """INSERT INTO students (uuid, school_id, matricule, last_name, first_name, date_of_birth, gender, photo_path)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)"""
+        cursor, conn = execute_query(query, (
             str(uuid.uuid4()), current_user.school_id or 1, matricule, form.last_name.data,
             form.first_name.data, form.date_of_birth.data.strftime('%Y-%m-%d'), form.gender.data, photo_filename
         ))
         student_id = cursor.lastrowid
         
         if year_id:
-            cursor.execute("""INSERT INTO enrollments (uuid, student_id, class_id, academic_year_id, status)
-                              VALUES (?, ?, ?, ?, 'active')""", (
-                str(uuid.uuid4()), student_id, form.class_id.data, year_id
-            ))
+            query = """INSERT INTO enrollments (uuid, student_id, class_id, academic_year_id, status)
+                       VALUES (?, ?, ?, ?, 'active')"""
+            cursor, conn = execute_query(query, (str(uuid.uuid4()), student_id, form.class_id.data, year_id))
         
         conn.commit()
+        conn.close()
         flash(f'Élève {form.last_name.data} inscrit avec succès (Matricule: {matricule}).', 'success')
         return redirect(url_for('admin.manage_students'))
     
     if year_id:
-        cursor.execute("""SELECT s.id, s.matricule, s.first_name, s.last_name, s.gender, s.photo_path, c.label as class_name
-                          FROM students s
-                          JOIN enrollments e ON s.id = e.student_id
-                          LEFT JOIN classes c ON e.class_id = c.id
-                          WHERE s.school_id = ? AND e.academic_year_id = ? AND e.status = 'active'
-                          ORDER BY s.last_name ASC""", (current_user.school_id or 1, year_id))
+        query = """SELECT s.id, s.matricule, s.first_name, s.last_name, s.gender, s.photo_path, c.label as class_name
+                   FROM students s
+                   JOIN enrollments e ON s.id = e.student_id
+                   LEFT JOIN classes c ON e.class_id = c.id
+                   WHERE s.school_id = ? AND e.academic_year_id = ? AND e.status = 'active'
+                   ORDER BY s.last_name ASC"""
+        cursor, conn = execute_query(query, (current_user.school_id or 1, year_id))
     else:
-        cursor, conn = execute_query("SELECT id, matricule, first_name, last_name, gender, photo_path, '' as class_name FROM students WHERE school_id = ?", (current_user.school_id or 1,,))
+        query = "SELECT id, matricule, first_name, last_name, gender, photo_path, '' as class_name FROM students WHERE school_id = ?"
+        cursor, conn = execute_query(query, (current_user.school_id or 1,))
         
     students = cursor.fetchall()
     conn.close()
@@ -247,20 +258,21 @@ def manage_students():
 @admin_required
 def manage_subjects():
     form = SubjectForm()
-    conn = get_db()
-    cursor = conn.cursor()
     
     if form.validate_on_submit():
-        cursor.execute("""INSERT INTO subjects (uuid, school_id, name, code, coefficient, credits, is_ue)
-                          VALUES (?, ?, ?, ?, ?, ?, ?)""", (
+        query = """INSERT INTO subjects (uuid, school_id, name, code, coefficient, credits, is_ue)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)"""
+        cursor, conn = execute_query(query, (
             str(uuid.uuid4()), current_user.school_id or 1, form.name.data, form.code.data,
             form.coefficient.data, form.credits.data, 1 if form.is_ue.data else 0
         ))
         conn.commit()
+        conn.close()
         flash('Matière ajoutée avec succès.', 'success')
         return redirect(url_for('admin.manage_subjects'))
     
-    cursor, conn = execute_query("SELECT * FROM subjects WHERE school_id = ? ORDER BY name ASC", (current_user.school_id or 1,,))
+    query = "SELECT * FROM subjects WHERE school_id = ? ORDER BY name ASC"
+    cursor, conn = execute_query(query, (current_user.school_id or 1,))
     subjects = cursor.fetchall()
     conn.close()
     return render_template('admin/subjects.html', form=form, subjects=subjects)
@@ -273,8 +285,6 @@ def manage_subjects():
 @login_required
 @admin_required
 def import_students():
-    conn = get_db()
-    cursor = conn.cursor()
     current_year = get_current_academic_year(current_user.school_id or 1)
     year_id = current_year['id'] if current_year else None
 
@@ -318,34 +328,36 @@ def import_students():
 
                     class_name = str(row['Classe']).strip()
 
-                    cursor, conn = execute_query("SELECT id FROM students WHERE matricule = ?", (matricule,,))
+                    cursor, conn = execute_query("SELECT id FROM students WHERE matricule = ?", (matricule,))
                     if cursor.fetchone():
                         errors.append(f"Ligne {index+2}: Le matricule '{matricule}' existe déjà.")
+                        conn.close()
                         continue
+                    conn.close()
 
-                    cursor, conn = execute_query("SELECT id FROM classes WHERE label = ?", (class_name,,))
+                    cursor, conn = execute_query("SELECT id FROM classes WHERE label = ?", (class_name,))
                     class_row = cursor.fetchone()
+                    conn.close()
                     if not class_row:
                         errors.append(f"Ligne {index+2}: La classe '{class_name}' n'existe pas.")
                         continue
                     class_id = class_row['id']
 
-                    cursor.execute("""
-                        INSERT INTO students (uuid, school_id, matricule, last_name, first_name, date_of_birth, gender)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """, (str(uuid.uuid4()), current_user.school_id or 1, matricule, last_name, first_name, dob_str, gender))
+                    query = """INSERT INTO students (uuid, school_id, matricule, last_name, first_name, date_of_birth, gender)
+                               VALUES (?, ?, ?, ?, ?, ?, ?)"""
+                    cursor, conn = execute_query(query, (str(uuid.uuid4()), current_user.school_id or 1, matricule, last_name, first_name, dob_str, gender))
                     student_id = cursor.lastrowid
 
-                    cursor.execute("""
-                        INSERT INTO enrollments (uuid, student_id, class_id, academic_year_id, status)
-                        VALUES (?, ?, ?, ?, 'active')
-                    """, (str(uuid.uuid4()), student_id, class_id, year_id))
+                    query = """INSERT INTO enrollments (uuid, student_id, class_id, academic_year_id, status)
+                               VALUES (?, ?, ?, ?, 'active')"""
+                    cursor, conn = execute_query(query, (str(uuid.uuid4()), student_id, class_id, year_id))
 
                     successes += 1
+                    conn.commit()
+                    conn.close()
                 except Exception as e:
                     errors.append(f"Ligne {index+2}: Erreur inattendue ({str(e)})")
 
-            conn.commit()
             if successes > 0:
                 flash(f"✅ Import réussi : {successes} élève(s) ajouté(s).", "success")
             if errors:
@@ -388,9 +400,6 @@ def download_template():
 @login_required
 @admin_required
 def manage_parents():
-    conn = get_db()
-    cursor = conn.cursor()
-    
     if request.method == 'POST':
         action = request.form.get('action')
         parent_id = request.form.get('parent_id')
@@ -402,12 +411,12 @@ def manage_parents():
             email = request.form.get('email')
             phone = request.form.get('phone')
             
-            cursor.execute("""
-                INSERT INTO users (uuid, school_id, username, password_hash, role, full_name, email, phone)
-                VALUES (?, ?, ?, ?, 'parent', ?, ?, ?)
-            """, (str(uuid.uuid4()), current_user.school_id or 1, username, 
+            query = """INSERT INTO users (uuid, school_id, username, password_hash, role, full_name, email, phone)
+                       VALUES (?, ?, ?, ?, 'parent', ?, ?, ?)"""
+            cursor, conn = execute_query(query, (str(uuid.uuid4()), current_user.school_id or 1, username, 
                   generate_password_hash(password), full_name, email, phone))
             conn.commit()
+            conn.close()
             flash(f'Parent {full_name} créé avec succès.', 'success')
             
         elif action == 'link':
@@ -415,39 +424,37 @@ def manage_parents():
             selected_students = request.form.getlist('students')
             
             if selected_students:
-                cursor.execute("""
-                    INSERT OR REPLACE INTO parents (uuid, user_id, student_ids, relationship)
-                    VALUES (?, ?, ?, ?)
-                """, (str(uuid.uuid4()), parent_user_id, json.dumps([int(s) for s in selected_students]), 'parent'))
+                query = """INSERT OR REPLACE INTO parents (uuid, user_id, student_ids, relationship)
+                           VALUES (?, ?, ?, ?)"""
+                cursor, conn = execute_query(query, (str(uuid.uuid4()), parent_user_id, json.dumps([int(s) for s in selected_students]), 'parent'))
             else:
-                cursor, conn = execute_query("DELETE FROM parents WHERE user_id = ?", (parent_user_id,,))
+                cursor, conn = execute_query("DELETE FROM parents WHERE user_id = ?", (parent_user_id,))
             
             conn.commit()
+            conn.close()
             flash('Lien parent-enfants mis à jour.', 'success')
         
         return redirect(url_for('admin.manage_parents'))
     
-    cursor.execute("""
-        SELECT u.id as user_id, u.username, u.full_name, u.email, u.phone, p.student_ids
-        FROM users u
-        LEFT JOIN parents p ON u.id = p.user_id
-        WHERE u.role = 'parent' AND u.school_id = ?
-        ORDER BY u.full_name
-    """, (current_user.school_id or 1,))
+    query = """SELECT u.id as user_id, u.username, u.full_name, u.email, u.phone, p.student_ids
+               FROM users u
+               LEFT JOIN parents p ON u.id = p.user_id
+               WHERE u.role = 'parent' AND u.school_id = ?
+               ORDER BY u.full_name"""
+    cursor, conn = execute_query(query, (current_user.school_id or 1,))
     parents = cursor.fetchall()
     
     current_year = get_current_academic_year(current_user.school_id or 1)
     if current_year:
-        cursor.execute("""
-            SELECT s.id, s.first_name, s.last_name, s.matricule, c.label as class_name
-            FROM students s
-            JOIN enrollments e ON s.id = e.student_id
-            LEFT JOIN classes c ON e.class_id = c.id
-            WHERE e.academic_year_id = ? AND e.status = 'active'
-            ORDER BY s.last_name
-        """, (current_year['id'],))
+        query = """SELECT s.id, s.first_name, s.last_name, s.matricule, c.label as class_name
+                   FROM students s
+                   JOIN enrollments e ON s.id = e.student_id
+                   LEFT JOIN classes c ON e.class_id = c.id
+                   WHERE e.academic_year_id = ? AND e.status = 'active'
+                   ORDER BY s.last_name"""
+        cursor, conn = execute_query(query, (current_year['id'],))
     else:
-        cursor.execute("SELECT id, first_name, last_name, matricule FROM students ORDER BY last_name")
+        cursor, conn = execute_query("SELECT id, first_name, last_name, matricule FROM students ORDER BY last_name", ())
     
     all_students = cursor.fetchall()
     conn.close()
@@ -458,13 +465,10 @@ def manage_parents():
 @login_required
 @admin_required
 def link_parent(parent_user_id):
-    conn = get_db()
-    cursor = conn.cursor()
-    
-    cursor, conn = execute_query("SELECT id, username, full_name FROM users WHERE id = ?", (parent_user_id,,))
+    cursor, conn = execute_query("SELECT id, username, full_name FROM users WHERE id = ?", (parent_user_id,))
     parent = cursor.fetchone()
     
-    cursor, conn = execute_query("SELECT student_ids FROM parents WHERE user_id = ?", (parent_user_id,,))
+    cursor, conn = execute_query("SELECT student_ids FROM parents WHERE user_id = ?", (parent_user_id,))
     parent_record = cursor.fetchone()
     linked_ids = []
     if parent_record and parent_record['student_ids']:
@@ -472,16 +476,15 @@ def link_parent(parent_user_id):
     
     current_year = get_current_academic_year(current_user.school_id or 1)
     if current_year:
-        cursor.execute("""
-            SELECT s.id, s.first_name, s.last_name, s.matricule, c.label as class_name
-            FROM students s
-            JOIN enrollments e ON s.id = e.student_id
-            LEFT JOIN classes c ON e.class_id = c.id
-            WHERE e.academic_year_id = ? AND e.status = 'active'
-            ORDER BY s.last_name
-        """, (current_year['id'],))
+        query = """SELECT s.id, s.first_name, s.last_name, s.matricule, c.label as class_name
+                   FROM students s
+                   JOIN enrollments e ON s.id = e.student_id
+                   LEFT JOIN classes c ON e.class_id = c.id
+                   WHERE e.academic_year_id = ? AND e.status = 'active'
+                   ORDER BY s.last_name"""
+        cursor, conn = execute_query(query, (current_year['id'],))
     else:
-        cursor.execute("SELECT id, first_name, last_name, matricule FROM students ORDER BY last_name")
+        cursor, conn = execute_query("SELECT id, first_name, last_name, matricule FROM students ORDER BY last_name", ())
     
     all_students = cursor.fetchall()
     conn.close()
@@ -496,25 +499,23 @@ def link_parent(parent_user_id):
 @login_required
 @admin_required
 def manage_teachers():
-    conn = get_db()
-    cursor = conn.cursor()
-    
     if request.method == 'POST':
         teacher_id = request.form.get('teacher_id')
         selected_subjects = request.form.getlist('subjects')
         
-        cursor, conn = execute_query("DELETE FROM teacher_subjects WHERE teacher_id = ?", (teacher_id,,))
+        cursor, conn = execute_query("DELETE FROM teacher_subjects WHERE teacher_id = ?", (teacher_id,))
         for subject_id in selected_subjects:
-            cursor, conn = execute_query("INSERT INTO teacher_subjects (teacher_id, subject_id) VALUES (?, ?)", (teacher_id, subject_id,))
+            cursor, conn = execute_query("INSERT INTO teacher_subjects (teacher_id, subject_id) VALUES (?, ?)", (teacher_id, subject_id))
             
         conn.commit()
+        conn.close()
         flash('Matières attribuées à l\'enseignant avec succès.', 'success')
         return redirect(url_for('admin.manage_teachers'))
     
-    cursor.execute("SELECT id, username, full_name FROM users WHERE role = 'teacher' ORDER BY full_name")
+    cursor, conn = execute_query("SELECT id, username, full_name FROM users WHERE role = 'teacher' ORDER BY full_name", ())
     teachers = cursor.fetchall()
     
-    cursor.execute("SELECT id, name FROM subjects ORDER BY name")
+    cursor, conn = execute_query("SELECT id, name FROM subjects ORDER BY name", ())
     all_subjects = cursor.fetchall()
     
     editing_teacher_id = request.args.get('teacher_id', type=int)
@@ -522,10 +523,10 @@ def manage_teachers():
     assigned_subject_ids = []
     
     if editing_teacher_id:
-        cursor, conn = execute_query("SELECT id, username, full_name FROM users WHERE id = ?", (editing_teacher_id,,))
+        cursor, conn = execute_query("SELECT id, username, full_name FROM users WHERE id = ?", (editing_teacher_id,))
         editing_teacher = cursor.fetchone()
         
-        cursor, conn = execute_query("SELECT subject_id FROM teacher_subjects WHERE teacher_id = ?", (editing_teacher_id,,))
+        cursor, conn = execute_query("SELECT subject_id FROM teacher_subjects WHERE teacher_id = ?", (editing_teacher_id,))
         assigned_subject_ids = [row['subject_id'] for row in cursor.fetchall()]
 
     conn.close()
@@ -541,11 +542,9 @@ def manage_teachers():
 @admin_required
 def school_settings():
     form = SchoolSettingsForm()
-    conn = get_db()
-    cursor = conn.cursor()
     school_id = current_user.school_id or 1
     
-    cursor, conn = execute_query("SELECT * FROM schools WHERE id = ?", (school_id,,))
+    cursor, conn = execute_query("SELECT * FROM schools WHERE id = ?", (school_id,))
     school = cursor.fetchone()
     
     if school:
@@ -566,21 +565,19 @@ def school_settings():
             form.logo.data.save(os.path.join(logo_dir, logo_filename))
         
         if school:
-            cursor.execute("""
-                UPDATE schools SET name = ?, director_name = ?, address = ?, phone = ?, email = ?, logo_path = ?
-                WHERE id = ?
-            """, (form.name.data, form.director_name.data, form.address.data, 
+            query = """UPDATE schools SET name = ?, director_name = ?, address = ?, phone = ?, email = ?, logo_path = ?
+                       WHERE id = ?"""
+            cursor, conn = execute_query(query, (form.name.data, form.director_name.data, form.address.data, 
                   form.phone.data, form.email.data, logo_filename, school_id))
         else:
-            cursor.execute("""
-                INSERT INTO schools (id, uuid, name, director_name, address, phone, email, logo_path)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (school_id, str(uuid.uuid4()), form.name.data, form.director_name.data, 
+            query = """INSERT INTO schools (id, uuid, name, director_name, address, phone, email, logo_path)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)"""
+            cursor, conn = execute_query(query, (school_id, str(uuid.uuid4()), form.name.data, form.director_name.data, 
                   form.address.data, form.phone.data, form.email.data, logo_filename))
             
         conn.commit()
-        flash('Paramètres de l\'école enregistrés avec succès !', 'success')
         conn.close()
+        flash('Paramètres de l\'école enregistrés avec succès !', 'success')
         return redirect(url_for('admin.school_settings'))
     
     if school:
@@ -602,28 +599,23 @@ def school_settings():
 @super_admin_required
 def manage_schools():
     form = SuperAdminSchoolForm()
-    conn = get_db()
-    cursor = conn.cursor()
     
     if form.validate_on_submit():
         school_id = request.form.get('school_id', type=int)
         
         if school_id:
-            cursor.execute("""
-                UPDATE schools SET name = ?, director_name = ?, address = ?, phone = ?, email = ?, 
-                                   start_date = ?, end_date = ?, status = ?
-                WHERE id = ?
-            """, (
+            query = """UPDATE schools SET name = ?, director_name = ?, address = ?, phone = ?, email = ?, 
+                       start_date = ?, end_date = ?, status = ? WHERE id = ?"""
+            cursor, conn = execute_query(query, (
                 form.name.data, form.director_name.data, form.address.data, form.phone.data, form.email.data,
                 form.start_date.data.strftime('%Y-%m-%d'), form.end_date.data.strftime('%Y-%m-%d'), 
                 form.status.data, school_id
             ))
             flash('Établissement mis à jour avec succès.', 'success')
         else:
-            cursor.execute("""
-                INSERT INTO schools (uuid, name, director_name, address, phone, email, start_date, end_date, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
+            query = """INSERT INTO schools (uuid, name, director_name, address, phone, email, start_date, end_date, status)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"""
+            cursor, conn = execute_query(query, (
                 str(uuid.uuid4()), form.name.data, form.director_name.data, form.address.data, 
                 form.phone.data, form.email.data, form.start_date.data.strftime('%Y-%m-%d'), 
                 form.end_date.data.strftime('%Y-%m-%d'), form.status.data
@@ -631,14 +623,15 @@ def manage_schools():
             flash('Nouvel établissement créé avec succès.', 'success')
             
         conn.commit()
+        conn.close()
         return redirect(url_for('admin.manage_schools'))
 
-    cursor.execute("SELECT id, name, director_name, start_date, end_date, status FROM schools ORDER BY id ASC")
+    cursor, conn = execute_query("SELECT id, name, director_name, start_date, end_date, status FROM schools ORDER BY id ASC", ())
     schools = cursor.fetchall()
     
     edit_id = request.args.get('edit', type=int)
     if edit_id:
-        cursor, conn = execute_query("SELECT * FROM schools WHERE id = ?", (edit_id,,))
+        cursor, conn = execute_query("SELECT * FROM schools WHERE id = ?", (edit_id,))
         school_to_edit = cursor.fetchone()
         if school_to_edit:
             school_to_edit = dict(school_to_edit)
@@ -664,9 +657,7 @@ def delete_school(school_id):
     if school_id == 1:
         flash("L'établissement principal (ID 1) ne peut pas être supprimé.", "danger")
     else:
-        conn = get_db()
-        cursor = conn.cursor()
-        cursor, conn = execute_query("DELETE FROM schools WHERE id = ?", (school_id,,))
+        cursor, conn = execute_query("DELETE FROM schools WHERE id = ?", (school_id,))
         conn.commit()
         conn.close()
         flash("Établissement supprimé.", "success")
@@ -681,12 +672,11 @@ def delete_school(school_id):
 @admin_required
 def manage_users():
     form = UserForm()
-    conn = get_db()
-    cursor = conn.cursor()
     
     if current_user.role == 'super_admin':
-        cursor.execute("SELECT id, name FROM schools ORDER BY name ASC")
+        cursor, conn = execute_query("SELECT id, name FROM schools ORDER BY name ASC", ())
         form.school_id.choices = [(row['id'], row['name']) for row in cursor.fetchall()]
+        conn.close()
     else:
         form.school_id.choices = [(current_user.school_id, "Mon Établissement")]
         form.school_id.data = current_user.school_id
@@ -697,18 +687,16 @@ def manage_users():
 
         if user_id:
             if form.password.data:
-                cursor.execute("""
-                    UPDATE users SET username = ?, password_hash = ?, full_name = ?, email = ?, phone = ?, role = ?, school_id = ?
-                    WHERE id = ?
-                """, (
+                query = """UPDATE users SET username = ?, password_hash = ?, full_name = ?, email = ?, phone = ?, role = ?, school_id = ?
+                           WHERE id = ?"""
+                cursor, conn = execute_query(query, (
                     form.username.data, generate_password_hash(form.password.data), form.full_name.data,
                     form.email.data, form.phone.data, form.role.data, target_school_id, user_id
                 ))
             else:
-                cursor.execute("""
-                    UPDATE users SET username = ?, full_name = ?, email = ?, phone = ?, role = ?, school_id = ?
-                    WHERE id = ?
-                """, (
+                query = """UPDATE users SET username = ?, full_name = ?, email = ?, phone = ?, role = ?, school_id = ?
+                           WHERE id = ?"""
+                cursor, conn = execute_query(query, (
                     form.username.data, form.full_name.data, form.email.data,
                     form.phone.data, form.role.data, target_school_id, user_id
                 ))
@@ -718,10 +706,9 @@ def manage_users():
                 flash('Le mot de passe est obligatoire pour créer un nouvel utilisateur.', 'danger')
                 return redirect(url_for('admin.manage_users'))
                 
-            cursor.execute("""
-                INSERT INTO users (uuid, school_id, username, password_hash, full_name, email, phone, role)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
+            query = """INSERT INTO users (uuid, school_id, username, password_hash, full_name, email, phone, role)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)"""
+            cursor, conn = execute_query(query, (
                 str(uuid.uuid4()), target_school_id, form.username.data, 
                 generate_password_hash(form.password.data), form.full_name.data, 
                 form.email.data, form.phone.data, form.role.data
@@ -729,26 +716,25 @@ def manage_users():
             flash('Nouvel utilisateur créé avec succès.', 'success')
             
         conn.commit()
+        conn.close()
         return redirect(url_for('admin.manage_users'))
 
     if current_user.role == 'super_admin':
-        cursor.execute("""
-            SELECT u.id, u.username, u.full_name, u.email, u.role, s.name as school_name
-            FROM users u LEFT JOIN schools s ON u.school_id = s.id
-            ORDER BY s.name, u.full_name ASC
-        """)
+        query = """SELECT u.id, u.username, u.full_name, u.email, u.role, s.name as school_name
+                   FROM users u LEFT JOIN schools s ON u.school_id = s.id
+                   ORDER BY s.name, u.full_name ASC"""
+        cursor, conn = execute_query(query, ())
     else:
-        cursor.execute("""
-            SELECT u.id, u.username, u.full_name, u.email, u.role, 'Mon École' as school_name
-            FROM users u WHERE u.school_id = ?
-            ORDER BY u.full_name ASC
-        """, (current_user.school_id,))
+        query = """SELECT u.id, u.username, u.full_name, u.email, u.role, 'Mon École' as school_name
+                   FROM users u WHERE u.school_id = ?
+                   ORDER BY u.full_name ASC"""
+        cursor, conn = execute_query(query, (current_user.school_id,))
         
     users_list = cursor.fetchall()
     
     edit_id = request.args.get('edit', type=int)
     if edit_id:
-        cursor, conn = execute_query("SELECT * FROM users WHERE id = ?", (edit_id,,))
+        cursor, conn = execute_query("SELECT * FROM users WHERE id = ?", (edit_id,))
         user_to_edit = cursor.fetchone()
         if user_to_edit:
             user_to_edit = dict(user_to_edit)
@@ -772,17 +758,15 @@ def delete_user(user_id):
     if user_id == current_user.id:
         flash("Vous ne pouvez pas supprimer votre propre compte.", "danger")
     else:
-        conn = get_db()
-        cursor = conn.cursor()
         if current_user.role == 'admin':
-            cursor, conn = execute_query("SELECT school_id FROM users WHERE id = ?", (user_id,,))
+            cursor, conn = execute_query("SELECT school_id FROM users WHERE id = ?", (user_id,))
             user_school = cursor.fetchone()
+            conn.close()
             if user_school and user_school['school_id'] != current_user.school_id:
                 flash("Action non autorisée.", "danger")
-                conn.close()
                 return redirect(url_for('admin.manage_users'))
         
-        cursor, conn = execute_query("DELETE FROM users WHERE id = ?", (user_id,,))
+        cursor, conn = execute_query("DELETE FROM users WHERE id = ?", (user_id,))
         conn.commit()
         conn.close()
         flash("Utilisateur supprimé.", "success")
@@ -797,41 +781,38 @@ def delete_user(user_id):
 @admin_required
 def send_whatsapp_notification():
     form = WhatsAppNotificationForm()
-    conn = get_db()
-    cursor = conn.cursor()
     
     current_year = get_current_academic_year(current_user.school_id or 1)
     year_id = current_year['id'] if current_year else None
     
     if year_id:
-        cursor.execute("""
-            SELECT s.id, s.first_name, s.last_name, s.matricule, u.phone as parent_phone
-            FROM students s
-            JOIN enrollments e ON s.id = e.student_id
-            LEFT JOIN parents par ON par.student_ids LIKE '%' || CAST(s.id AS TEXT) || '%'
-            LEFT JOIN users u ON par.user_id = u.id
-            WHERE e.academic_year_id = ? AND e.status = 'active'
-            ORDER BY s.last_name
-        """, (year_id,))
+        query = """SELECT s.id, s.first_name, s.last_name, s.matricule, u.phone as parent_phone
+                   FROM students s
+                   JOIN enrollments e ON s.id = e.student_id
+                   LEFT JOIN parents par ON par.student_ids LIKE '%' || CAST(s.id AS TEXT) || '%'
+                   LEFT JOIN users u ON par.user_id = u.id
+                   WHERE e.academic_year_id = ? AND e.status = 'active'
+                   ORDER BY s.last_name"""
+        cursor, conn = execute_query(query, (year_id,))
     else:
-        cursor.execute("SELECT s.id, s.first_name, s.last_name, s.matricule, '' as parent_phone FROM students s")
+        cursor, conn = execute_query("SELECT s.id, s.first_name, s.last_name, s.matricule, '' as parent_phone FROM students s", ())
     
     students = cursor.fetchall()
     form.student_id.choices = [(s['id'], f"{s['last_name']} {s['first_name']} ({s['matricule']})") for s in students]
+    conn.close()
     
     if form.validate_on_submit():
         student_id = form.student_id.data
         message_type = form.message_type.data
         
-        cursor.execute("""
-            SELECT s.first_name, s.last_name, c.label as class_name, u.phone as parent_phone
-            FROM students s
-            LEFT JOIN enrollments e ON s.id = e.student_id
-            LEFT JOIN classes c ON e.class_id = c.id
-            LEFT JOIN parents par ON par.student_ids LIKE '%' || CAST(s.id AS TEXT) || '%'
-            LEFT JOIN users u ON par.user_id = u.id
-            WHERE s.id = ?
-        """, (student_id,))
+        query = """SELECT s.first_name, s.last_name, c.label as class_name, u.phone as parent_phone
+                   FROM students s
+                   LEFT JOIN enrollments e ON s.id = e.student_id
+                   LEFT JOIN classes c ON e.class_id = c.id
+                   LEFT JOIN parents par ON par.student_ids LIKE '%' || CAST(s.id AS TEXT) || '%'
+                   LEFT JOIN users u ON par.user_id = u.id
+                   WHERE s.id = ?"""
+        cursor, conn = execute_query(query, (student_id,))
         student = cursor.fetchone()
         
         if not student or not student['parent_phone']:
@@ -843,11 +824,10 @@ def send_whatsapp_notification():
         success, msg = False, ""
         
         if message_type == 'bulletin':
-            cursor.execute("""
-                SELECT ROUND(AVG(g.grade_value), 2) as avg
-                FROM grades g
-                WHERE g.enrollment_id = (SELECT id FROM enrollments WHERE student_id = ?)
-            """, (student_id,))
+            query = """SELECT ROUND(AVG(g.grade_value), 2) as avg
+                       FROM grades g
+                       WHERE g.enrollment_id = (SELECT id FROM enrollments WHERE student_id = ?)"""
+            cursor, conn = execute_query(query, (student_id,))
             avg_result = cursor.fetchone()
             average = avg_result['avg'] if avg_result and avg_result['avg'] else 0.0
             decision = "ADMIS(E)" if average >= 10.0 else "AJOURNÉ(E)"
@@ -859,11 +839,10 @@ def send_whatsapp_notification():
             )
             
         elif message_type == 'absence':
-            cursor.execute("""
-                SELECT date, status, comment FROM attendances
-                WHERE enrollment_id = (SELECT id FROM enrollments WHERE student_id = ?)
-                ORDER BY date DESC LIMIT 1
-            """, (student_id,))
+            query = """SELECT date, status, comment FROM attendances
+                       WHERE enrollment_id = (SELECT id FROM enrollments WHERE student_id = ?)
+                       ORDER BY date DESC LIMIT 1"""
+            cursor, conn = execute_query(query, (student_id,))
             attendance = cursor.fetchone()
             if attendance:
                 success, msg = whatsapp.send_absence_alert(
@@ -882,7 +861,6 @@ def send_whatsapp_notification():
         elif message_type == 'custom':
             success, msg = whatsapp.send_message(student['parent_phone'], form.custom_message.data)
             
-        # ✅ CORRECTION : 8 espaces d'indentation (aligné avec les if/elif)
         flash("✅ Message envoyé avec succès !" if success else f"❌ Échec de l'envoi : {msg}", "success" if success else "danger")
         
         conn.close()
@@ -899,13 +877,10 @@ def send_whatsapp_notification():
 @admin_required
 def bulk_payment_reminders():
     """Envoie des rappels de paiement à tous les parents d'élèves en retard"""
-    conn = get_db()
-    cursor = conn.cursor()
     current_year = get_current_academic_year(current_user.school_id or 1)
     year_id = current_year['id'] if current_year else None
     
-    cursor.execute("""
-        SELECT s.id, s.matricule, s.first_name, s.last_name,
+    query = """SELECT s.id, s.matricule, s.first_name, s.last_name,
                c.label as class_name, l.id as level_id,
                u.phone as parent_phone, u.full_name as parent_name
         FROM students s
@@ -915,17 +890,21 @@ def bulk_payment_reminders():
         LEFT JOIN parents par ON par.student_ids LIKE '%' || CAST(s.id AS TEXT) || '%'
         LEFT JOIN users u ON par.user_id = u.id
         WHERE e.academic_year_id = ? AND e.status = 'active'
-        ORDER BY s.last_name ASC
-    """, (year_id,))
+        ORDER BY s.last_name ASC"""
+    cursor, conn = execute_query(query, (year_id,))
     students = cursor.fetchall()
     
     students_overdue = []
     for student in students:
-        cursor, conn = execute_query("SELECT COALESCE(SUM(amount), 0) FROM fees WHERE level_id = ? AND academic_year_id = ?", (student['level_id'], year_id,))
-        amount_due = cursor.fetchone()[0]
+        query = "SELECT COALESCE(SUM(amount), 0) FROM fees WHERE level_id = ? AND academic_year_id = ?"
+        cursor_fee, conn_fee = execute_query(query, (student['level_id'], year_id))
+        amount_due = cursor_fee.fetchone()[0]
+        conn_fee.close()
         
-        cursor, conn = execute_query("SELECT COALESCE(SUM(amount), 0) FROM payments WHERE student_id = ?", (student['id'],,))
-        amount_paid = cursor.fetchone()[0]
+        query = "SELECT COALESCE(SUM(amount), 0) FROM payments WHERE student_id = ?"
+        cursor_pay, conn_pay = execute_query(query, (student['id'],))
+        amount_paid = cursor_pay.fetchone()[0]
+        conn_pay.close()
         
         balance = amount_paid - amount_due
         
@@ -1001,22 +980,19 @@ La Comptabilité"""
 def bulk_bulletins():
     """Envoi groupé des récapitulatifs de bulletins par classe et période"""
     form = BulkBulletinForm()
-    conn = get_db()
-    cursor = conn.cursor()
     current_year = get_current_academic_year(current_user.school_id or 1)
     year_id = current_year['id'] if current_year else None
     
-    cursor.execute("SELECT id, label FROM classes ORDER BY label ASC")
+    cursor, conn = execute_query("SELECT id, label FROM classes ORDER BY label ASC", ())
     form.class_id.choices = [(row['id'], row['label']) for row in cursor.fetchall()]
+    conn.close()
     
     results = None
     
     if form.validate_on_submit():
         class_id = form.class_id.data
-        term = form.term.data
         
-        cursor.execute("""
-            SELECT s.id, s.matricule, s.first_name, s.last_name,
+        query = """SELECT s.id, s.matricule, s.first_name, s.last_name,
                    c.label as class_name, u.phone as parent_phone, u.full_name as parent_name
             FROM students s
             JOIN enrollments e ON s.id = e.student_id
@@ -1024,8 +1000,8 @@ def bulk_bulletins():
             LEFT JOIN parents par ON par.student_ids LIKE '%' || CAST(s.id AS TEXT) || '%'
             LEFT JOIN users u ON par.user_id = u.id
             WHERE e.class_id = ? AND e.academic_year_id = ? AND e.status = 'active'
-            ORDER BY s.last_name ASC
-        """, (class_id, year_id))
+            ORDER BY s.last_name ASC"""
+        cursor, conn = execute_query(query, (class_id, year_id))
         students = cursor.fetchall()
         
         whatsapp = WhatsAppService()
@@ -1034,12 +1010,12 @@ def bulk_bulletins():
         for student in students:
             student_name = f"{student['last_name']} {student['first_name']}"
             
-            cursor.execute("""
-                SELECT ROUND(AVG(g.grade_value), 2) as avg
-                FROM grades g
-                WHERE g.enrollment_id = (SELECT id FROM enrollments WHERE student_id = ?)
-            """, (student['id'],))
-            avg_result = cursor.fetchone()
+            query = """SELECT ROUND(AVG(g.grade_value), 2) as avg
+                       FROM grades g
+                       WHERE g.enrollment_id = (SELECT id FROM enrollments WHERE student_id = ?)"""
+            cursor_avg, conn_avg = execute_query(query, (student['id'],))
+            avg_result = cursor_avg.fetchone()
+            conn_avg.close()
             average = avg_result['avg'] if avg_result and avg_result['avg'] else 0.0
             
             decision = "ADMIS(E)" if average >= 10.0 else "AJOURNÉ(E)"
@@ -1079,28 +1055,25 @@ def bulk_bulletins():
 
     conn.close()
     return render_template('admin/bulk_bulletins.html', form=form, results=results, current_year=current_year)
-    # ============================================================
+
+
+# ============================================================
 # FORMULAIRE D'ADHÉSION EN LIGNE (PUBLIC)
 # ============================================================
 @admin_bp.route('/adhesion', methods=['GET', 'POST'])
 def adhesion_form():
     """Formulaire d'adhésion accessible publiquement"""
     if request.method == 'POST':
-        conn = get_db()
-        cursor = conn.cursor()
-        
-        # Récupérer les cases cochées sous forme de liste
         features = request.form.getlist('features_interest')
         challenges = request.form.getlist('challenges')
         
         try:
-            cursor.execute("""
-                INSERT INTO adhesions (uuid, school_name, school_type, student_count, address, 
-                                       creation_year, contact_name, contact_role, contact_phone, 
-                                       contact_email, current_system, challenges, features_interest, 
-                                       start_timeline, has_computer, message, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new')
-            """, (
+            query = """INSERT INTO adhesions (uuid, school_name, school_type, student_count, address, 
+                       creation_year, contact_name, contact_role, contact_phone, 
+                       contact_email, current_system, challenges, features_interest, 
+                       start_timeline, has_computer, message, status)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new')"""
+            cursor, conn = execute_query(query, (
                 str(uuid.uuid4()),
                 request.form.get('school_name'),
                 request.form.get('school_type'),
@@ -1118,8 +1091,8 @@ def adhesion_form():
                 request.form.get('has_computer'),
                 request.form.get('message')
             ))
-            conn.commit()
             adhesion_id = cursor.lastrowid
+            conn.commit()
             conn.close()
             
             flash('✅ Votre demande a été enregistrée avec succès ! Nous vous recontactons sous 48h.', 'success')
@@ -1135,9 +1108,7 @@ def adhesion_form():
 @admin_bp.route('/adhesion/confirmation/<int:adhesion_id>')
 def adhesion_confirmation(adhesion_id):
     """Page de confirmation après soumission"""
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor, conn = execute_query("SELECT * FROM adhesions WHERE id = ?", (adhesion_id,,))
+    cursor, conn = execute_query("SELECT * FROM adhesions WHERE id = ?", (adhesion_id,))
     adhesion = cursor.fetchone()
     conn.close()
     
@@ -1153,20 +1124,16 @@ def adhesion_confirmation(adhesion_id):
 @admin_required
 def manage_adhesions():
     """Tableau de bord admin pour voir toutes les adhésions"""
-    conn = get_db()
-    cursor = conn.cursor()
-    
     status_filter = request.args.get('status', 'all')
     
     if status_filter == 'all':
-        cursor.execute("SELECT * FROM adhesions ORDER BY created_at DESC")
+        cursor, conn = execute_query("SELECT * FROM adhesions ORDER BY created_at DESC", ())
     else:
-        cursor, conn = execute_query("SELECT * FROM adhesions WHERE status = ? ORDER BY created_at DESC", (status_filter,,))
+        cursor, conn = execute_query("SELECT * FROM adhesions WHERE status = ? ORDER BY created_at DESC", (status_filter,))
     
     adhesions = cursor.fetchall()
     conn.close()
     
-    # Statistiques
     stats = {
         'total': len(adhesions),
         'new': sum(1 for a in adhesions if a['status'] == 'new'),
@@ -1187,9 +1154,7 @@ def update_adhesion_status(adhesion_id, status):
         flash("Statut invalide.", "danger")
         return redirect(url_for('admin.manage_adhesions'))
     
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor, conn = execute_query("UPDATE adhesions SET status = ? WHERE id = ?", (status, adhesion_id,))
+    cursor, conn = execute_query("UPDATE adhesions SET status = ? WHERE id = ?", (status, adhesion_id))
     conn.commit()
     conn.close()
     
@@ -1202,9 +1167,7 @@ def update_adhesion_status(adhesion_id, status):
 @admin_required
 def delete_adhesion(adhesion_id):
     """Supprimer une adhésion"""
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor, conn = execute_query("DELETE FROM adhesions WHERE id = ?", (adhesion_id,,))
+    cursor, conn = execute_query("DELETE FROM adhesions WHERE id = ?", (adhesion_id,))
     conn.commit()
     conn.close()
     flash("Adhésion supprimée.", "success")
