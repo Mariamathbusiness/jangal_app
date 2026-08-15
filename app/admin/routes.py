@@ -788,7 +788,6 @@ def delete_user(user_id):
 @admin_required
 def send_whatsapp_notification():
     form = WhatsAppNotificationForm()
-    
     current_year = get_current_academic_year(current_user.school_id or 1)
     year_id = current_year['id'] if current_year else None
     
@@ -796,7 +795,7 @@ def send_whatsapp_notification():
         query = """SELECT s.id, s.first_name, s.last_name, s.matricule, u.phone as parent_phone
                    FROM students s
                    JOIN enrollments e ON s.id = e.student_id
-                   LEFT JOIN parents par ON par.student_ids LIKE '%' || CAST(s.id AS TEXT) || '%'
+                   LEFT JOIN parents par ON par.student_ids LIKE '%%' || CAST(s.id AS TEXT) || '%%'
                    LEFT JOIN users u ON par.user_id = u.id
                    WHERE e.academic_year_id = ? AND e.status = 'active'
                    ORDER BY s.last_name"""
@@ -816,7 +815,7 @@ def send_whatsapp_notification():
                    FROM students s
                    LEFT JOIN enrollments e ON s.id = e.student_id
                    LEFT JOIN classes c ON e.class_id = c.id
-                   LEFT JOIN parents par ON par.student_ids LIKE '%' || CAST(s.id AS TEXT) || '%'
+                   LEFT JOIN parents par ON par.student_ids LIKE '%%' || CAST(s.id AS TEXT) || '%%'
                    LEFT JOIN users u ON par.user_id = u.id
                    WHERE s.id = ?"""
         cursor, conn = execute_query(query, (student_id,))
@@ -876,6 +875,7 @@ def send_whatsapp_notification():
     conn.close()
     return render_template('admin/whatsapp_notifications.html', form=form)
 
+
 # ============================================================
 # 13. RAPPELS DE PAIEMENT EN MASSE
 # ============================================================
@@ -883,9 +883,12 @@ def send_whatsapp_notification():
 @login_required
 @admin_required
 def bulk_payment_reminders():
-    """Envoie des rappels de paiement à tous les parents d'élèves en retard"""
     current_year = get_current_academic_year(current_user.school_id or 1)
     year_id = current_year['id'] if current_year else None
+    
+    if not year_id:
+        flash("⚠️ Veuillez d'abord définir une année scolaire en cours.", "warning")
+        return redirect(url_for('admin.manage_years'))
     
     query = """SELECT s.id, s.matricule, s.first_name, s.last_name,
                c.label as class_name, l.id as level_id,
@@ -894,23 +897,22 @@ def bulk_payment_reminders():
         JOIN enrollments e ON s.id = e.student_id
         JOIN classes c ON e.class_id = c.id
         JOIN levels l ON c.level_id = l.id
-        LEFT JOIN parents par ON par.student_ids LIKE '%' || CAST(s.id AS TEXT) || '%'
+        LEFT JOIN parents par ON par.student_ids LIKE '%%' || CAST(s.id AS TEXT) || '%%'
         LEFT JOIN users u ON par.user_id = u.id
         WHERE e.academic_year_id = ? AND e.status = 'active'
         ORDER BY s.last_name ASC"""
     cursor, conn = execute_query(query, (year_id,))
     students = cursor.fetchall()
+    conn.close()
     
     students_overdue = []
     for student in students:
-        # Récupération des frais avec accès par nom de colonne (dictionnaire)
         query_fees = "SELECT COALESCE(SUM(amount), 0) as total_fees FROM fees WHERE level_id = ? AND academic_year_id = ?"
         cursor_fee, conn_fee = execute_query(query_fees, (student['level_id'], year_id))
         res_fee = cursor_fee.fetchone()
         amount_due = res_fee['total_fees'] if res_fee else 0
         conn_fee.close()
         
-        # Récupération des paiements avec accès par nom de colonne (dictionnaire)
         query_paid = "SELECT COALESCE(SUM(amount), 0) as total_paid FROM payments WHERE student_id = ?"
         cursor_pay, conn_pay = execute_query(query_paid, (student['id'],))
         res_pay = cursor_pay.fetchone()
@@ -975,13 +977,12 @@ La Comptabilité"""
         flash(f"✅ {len(results['success'])} rappel(s) envoyé(s) avec succès ! {'❌ ' + str(len(results['failed'])) + ' échec(s).' if results['failed'] else ''}", 
               "success" if results['success'] else "danger")
     
-    conn.close()
     return render_template('admin/bulk_payment_reminders.html', 
                           students_overdue=students_overdue,
                           results=results,
                           current_year=current_year)
 
-                          
+
 # ============================================================
 # 14. ENVOI GROUPÉ DES BULLETINS
 # ============================================================

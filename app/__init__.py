@@ -133,5 +133,15 @@ def execute_query(query, params=()):
     if os.getenv('DATABASE_URL'):
         query = query.replace('?', '%s')
     
-    cursor.execute(query, params)
+    try:
+        cursor.execute(query, params)
+    except Exception as e:
+        print("\n" + "="*50)
+        print("❌ ERREUR SQL DÉTECTÉE")
+        print(f"Query  : {query}")
+        print(f"Params : {params} (Type: {type(params)})")
+        print(f"Erreur : {e}")
+        print("="*50 + "\n")
+        raise
+        
     return cursor, conn
