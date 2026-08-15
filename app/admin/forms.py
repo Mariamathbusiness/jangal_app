@@ -1,6 +1,6 @@
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileAllowed
-from wtforms import StringField, SubmitField, SelectField, DateField, FloatField, TextAreaField
+from wtforms import StringField, SubmitField, SelectField, DateField, FloatField, TextAreaField, HiddenField # <-- Ajoutez HiddenField ici
 from wtforms.validators import DataRequired, Length, NumberRange, Email, Optional
 
 # ============================================================
@@ -64,6 +64,7 @@ class SchoolSettingsForm(FlaskForm):
     submit = SubmitField('💾 Enregistrer les paramètres')
 
 class SuperAdminSchoolForm(FlaskForm):
+    school_id = HiddenField('ID École') # <-- Ajoutez cette ligne
     name = StringField('Nom de l\'établissement', validators=[DataRequired()])
     director_name = StringField('Nom du Directeur', validators=[DataRequired()])
     address = StringField('Adresse', validators=[DataRequired()])
@@ -120,3 +121,4 @@ class BulkBulletinForm(FlaskForm):
         ('Annuel', 'Annuel')
     ], validators=[DataRequired()])
     submit = SubmitField('📱 Lancer l\'envoi groupé des bulletins')
+    

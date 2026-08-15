@@ -15,7 +15,7 @@
                     <form method="POST">
                         {{ form.hidden_tag() }}
                         {% if edit_id %}
-                            <input type="hidden" name="school_id" value="{{ edit_id }}">
+                            {{ form.school_id() }}
                         {% endif %}
                         
                         <div class="mb-2">{{ form.name.label(class="form-label") }} {{ form.name(class="form-control form-control-sm") }}</div>
