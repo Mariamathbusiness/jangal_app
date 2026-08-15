@@ -5,16 +5,15 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from flask_login import login_required, current_user
 
 from app.pedagogical.forms import GradeSelectionForm, AttendanceForm, ScheduleForm
-from app import get_db, execute_query)
+from app import get_db, execute_query
 from weasyprint import HTML
 
 pedagogical_bp = Blueprint('pedagogical', __name__, template_folder='../templates/pedagogical')
 
 
 def get_current_academic_year(school_id=1):
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor, conn = execute_query("SELECT id, label FROM academic_years WHERE school_id = ? AND is_current = 1 LIMIT 1", (school_id,,))
+    query = "SELECT id, label FROM academic_years WHERE school_id = ? AND is_current = 1 LIMIT 1"
+    cursor, conn = execute_query(query, (school_id,))
     year = cursor.fetchone()
     conn.close()
     return year
@@ -61,25 +60,22 @@ def dashboard():
 @login_required
 def enter_grades():
     form = GradeSelectionForm()
-    conn = get_db()
-    cursor = conn.cursor()
     current_year = get_current_academic_year(current_user.school_id or 1)
     year_id = current_year['id'] if current_year else None
     
     # Peupler les classes
-    cursor.execute("SELECT id, label FROM classes ORDER BY label ASC")
+    cursor, conn = execute_query("SELECT id, label FROM classes ORDER BY label ASC", ())
     form.class_id.choices = [(row['id'], row['label']) for row in cursor.fetchall()]
     
     # Peupler les matières (filtrées par enseignant si c'est un prof)
     if current_user.role == 'teacher':
-        cursor.execute("""
-            SELECT sub.id, sub.name FROM subjects sub
-            JOIN teacher_subjects ts ON sub.id = ts.subject_id
-            WHERE ts.teacher_id = ?
-            ORDER BY sub.name ASC
-        """, (current_user.id,))
+        query = """SELECT sub.id, sub.name FROM subjects sub
+                   JOIN teacher_subjects ts ON sub.id = ts.subject_id
+                   WHERE ts.teacher_id = ? ORDER BY sub.name ASC"""
+        cursor, conn = execute_query(query, (current_user.id,))
     else:
-        cursor.execute("SELECT id, name FROM subjects ORDER BY name ASC")
+        cursor, conn = execute_query("SELECT id, name FROM subjects ORDER BY name ASC", ())
+        
     form.subject_id.choices = [(row['id'], row['name']) for row in cursor.fetchall()]
     
     students_data = []
@@ -93,21 +89,18 @@ def enter_grades():
         selected_term = form.term.data
         
         # Récupérer les élèves de la classe
-        cursor.execute("""
-            SELECT e.id as enrollment_id, s.id as student_id, s.first_name, s.last_name, s.matricule
-            FROM enrollments e
-            JOIN students s ON e.student_id = s.id
-            WHERE e.class_id = ? AND e.academic_year_id = ? AND e.status = 'active'
-            ORDER BY s.last_name ASC
-        """, (selected_class_id, year_id))
+        query = """SELECT e.id as enrollment_id, s.id as student_id, s.first_name, s.last_name, s.matricule
+                   FROM enrollments e
+                   JOIN students s ON e.student_id = s.id
+                   WHERE e.class_id = ? AND e.academic_year_id = ? AND e.status = 'active'
+                   ORDER BY s.last_name ASC"""
+        cursor, conn = execute_query(query, (selected_class_id, year_id))
         students = cursor.fetchall()
         
         # Récupérer les notes existantes pour ce trimestre
-        cursor.execute("""
-            SELECT enrollment_id, grade_value, coefficient, comment
-            FROM grades
-            WHERE subject_id = ? AND term = ?
-        """, (selected_subject_id, selected_term))
+        query = """SELECT enrollment_id, grade_value, coefficient, comment
+                   FROM grades WHERE subject_id = ? AND term = ?"""
+        cursor, conn = execute_query(query, (selected_subject_id, selected_term))
         existing_grades = {row['enrollment_id']: row for row in cursor.fetchall()}
         
         for student in students:
@@ -131,18 +124,13 @@ def enter_grades():
 @pedagogical_bp.route('/grades/save', methods=['POST'])
 @login_required
 def save_grades():
-    conn = get_db()
-    cursor = conn.cursor()
-    
     subject_id = request.form.get('subject_id', type=int)
     term = request.form.get('term')
-    # On récupère le type de note depuis le champ caché (que nous allons renommer)
     grade_type = request.form.get('type_note', 'CC') 
     
     for key, value in request.form.items():
         if key.startswith('grade_'):
             parts = key.split('_')
-            # On vérifie que la deuxième partie est bien un chiffre (ex: 'grade_12' -> '12')
             if len(parts) == 2 and parts[1].isdigit():
                 enrollment_id = int(parts[1])
                 try:
@@ -151,28 +139,23 @@ def save_grades():
                     comment = request.form.get(f'comment_{enrollment_id}', '')
                     
                     if grade_value is not None:
-                        cursor.execute("""
-                            SELECT id FROM grades 
-                            WHERE enrollment_id = ? AND subject_id = ? AND term = ?
-                        """, (enrollment_id, subject_id, term))
+                        query = "SELECT id FROM grades WHERE enrollment_id = ? AND subject_id = ? AND term = ?"
+                        cursor, conn = execute_query(query, (enrollment_id, subject_id, term))
                         existing = cursor.fetchone()
                         
                         if existing:
-                            cursor.execute("""
-                                UPDATE grades SET grade_value = ?, coefficient = ?, comment = ?, grade_type = ?
-                                WHERE id = ?
-                            """, (grade_value, coefficient, comment, grade_type, existing['id']))
+                            query = """UPDATE grades SET grade_value = ?, coefficient = ?, comment = ?, grade_type = ? WHERE id = ?"""
+                            cursor, conn = execute_query(query, (grade_value, coefficient, comment, grade_type, existing['id']))
                         else:
-                            cursor.execute("""
-                                INSERT INTO grades (uuid, enrollment_id, subject_id, grade_value, coefficient, grade_type, term, comment, entered_by)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                            """, (str(uuid.uuid4()), enrollment_id, subject_id, grade_value, coefficient, 
-                                  grade_type, term, comment, current_user.id))
+                            query = """INSERT INTO grades (uuid, enrollment_id, subject_id, grade_value, coefficient, grade_type, term, comment, entered_by)
+                                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"""
+                            cursor, conn = execute_query(query, (str(uuid.uuid4()), enrollment_id, subject_id, grade_value, coefficient, 
+                                      grade_type, term, comment, current_user.id))
+                        conn.commit()
+                        conn.close()
                 except ValueError:
                     continue
     
-    conn.commit()
-    conn.close()
     flash('Notes enregistrées avec succès !', 'success')
     return redirect(url_for('pedagogical.enter_grades'))
 
@@ -183,8 +166,6 @@ def save_grades():
 @pedagogical_bp.route('/bulletin/<int:student_id>')
 @login_required
 def generate_bulletin(student_id):
-    conn = get_db()
-    cursor = conn.cursor()
     current_year = get_current_academic_year(current_user.school_id or 1)
     year_id = current_year['id'] if current_year else None
 
@@ -193,8 +174,7 @@ def generate_bulletin(student_id):
         return redirect(url_for('pedagogical.dashboard'))
 
     # 1. Récupérer les infos de l'élève
-    cursor.execute("""
-        SELECT s.first_name, s.last_name, s.matricule, s.gender, s.photo_path,
+    query = """SELECT s.first_name, s.last_name, s.matricule, s.gender, s.photo_path,
                c.label as class_name, l.name as level_name, l.level_type,
                sch.name as school_name, sch.address as school_address
         FROM students s
@@ -202,8 +182,8 @@ def generate_bulletin(student_id):
         JOIN classes c ON e.class_id = c.id
         JOIN levels l ON c.level_id = l.id
         JOIN schools sch ON s.school_id = sch.id
-        WHERE s.id = ? AND e.academic_year_id = ? AND e.status = 'active'
-    """, (student_id, year_id))
+        WHERE s.id = ? AND e.academic_year_id = ? AND e.status = 'active'"""
+    cursor, conn = execute_query(query, (student_id, year_id))
     student_info = cursor.fetchone()
 
     if not student_info:
@@ -212,8 +192,7 @@ def generate_bulletin(student_id):
         return redirect(url_for('admin.manage_students'))
 
     # 2. Récupérer les matières et notes
-    cursor.execute("""
-        SELECT sub.name as subject_name, sub.code, sub.coefficient,
+    query = """SELECT sub.name as subject_name, sub.code, sub.coefficient,
                MAX(CASE WHEN g.grade_type = 'CC' THEN g.grade_value END) as cc,
                MAX(CASE WHEN g.grade_type = 'EXAMEN' THEN g.grade_value END) as examen,
                g.comment
@@ -222,9 +201,8 @@ def generate_bulletin(student_id):
             SELECT id FROM enrollments WHERE student_id = ? AND academic_year_id = ?
         )
         GROUP BY sub.id
-        ORDER BY sub.name ASC
-    """, (student_id, year_id))
-
+        ORDER BY sub.name ASC"""
+    cursor, conn = execute_query(query, (student_id, year_id))
     subjects_data = [dict(row) for row in cursor.fetchall()]
     conn.close()
 
@@ -233,22 +211,15 @@ def generate_bulletin(student_id):
 
     if level_type == 'preschool':
         template_name = 'pedagogical/bulletins/preschool.html'
-        context = {
-            'student': student_info,
-            'subjects': subjects_data,
-            'current_year': current_year
-        }
+        context = {'student': student_info, 'subjects': subjects_data, 'current_year': current_year}
 
     elif level_type == 'primary':
         template_name = 'pedagogical/bulletins/primary.html'
         total_points, total_coefficients, subjects_data = calculate_grades(subjects_data)
         general_average = round(total_points / total_coefficients, 2) if total_coefficients > 0 else 0.0
         context = {
-            'student': student_info,
-            'subjects': subjects_data,
-            'general_average': general_average,
-            'total_coefficients': total_coefficients,
-            'rank': "N/A",
+            'student': student_info, 'subjects': subjects_data, 'general_average': general_average,
+            'total_coefficients': total_coefficients, 'rank': "N/A",
             'decision': "ADMIS(E)" if general_average >= 10.0 else "AJOURNÉ(E)",
             'appreciation': "Travail sérieux" if general_average >= 14 else "Doit faire des efforts",
             'current_year': current_year
@@ -259,11 +230,8 @@ def generate_bulletin(student_id):
         total_points, total_coefficients, subjects_data = calculate_grades(subjects_data)
         general_average = round(total_points / total_coefficients, 2) if total_coefficients > 0 else 0.0
         context = {
-            'student': student_info,
-            'subjects': subjects_data,
-            'general_average': general_average,
-            'total_coefficients': total_coefficients,
-            'rank': "N/A",
+            'student': student_info, 'subjects': subjects_data, 'general_average': general_average,
+            'total_coefficients': total_coefficients, 'rank': "N/A",
             'decision': "ADMIS(E)" if general_average >= 10.0 else "AJOURNÉ(E)",
             'appreciation': "Travail sérieux" if general_average >= 14 else "Doit faire des efforts",
             'current_year': current_year
@@ -274,16 +242,12 @@ def generate_bulletin(student_id):
         total_points, total_coefficients, subjects_data = calculate_grades(subjects_data)
         general_average = round(total_points / total_coefficients, 2) if total_coefficients > 0 else 0.0
         context = {
-            'student': student_info,
-            'subjects': subjects_data,
-            'general_average': general_average,
-            'total_coefficients': total_coefficients,
-            'rank': "N/A",
+            'student': student_info, 'subjects': subjects_data, 'general_average': general_average,
+            'total_coefficients': total_coefficients, 'rank': "N/A",
             'decision': "VALIDÉ" if general_average >= 10.0 else "NON VALIDÉ",
             'appreciation': "Parcours validé" if general_average >= 14 else "Parcours en cours",
             'current_year': current_year
         }
-
     else:
         flash("Type de niveau non reconnu.", "danger")
         return redirect(url_for('admin.manage_students'))
@@ -306,12 +270,10 @@ def generate_bulletin(student_id):
 @login_required
 def take_attendance():
     form = AttendanceForm()
-    conn = get_db()
-    cursor = conn.cursor()
     current_year = get_current_academic_year(current_user.school_id or 1)
     year_id = current_year['id'] if current_year else None
 
-    cursor.execute("SELECT id, label FROM classes ORDER BY label ASC")
+    cursor, conn = execute_query("SELECT id, label FROM classes ORDER BY label ASC", ())
     form.class_id.choices = [(row['id'], row['label']) for row in cursor.fetchall()]
 
     students_data = []
@@ -319,20 +281,16 @@ def take_attendance():
         class_id = form.class_id.data
         att_date = form.date.data.strftime('%Y-%m-%d')
 
-        # Récupérer les élèves de la classe
-        cursor.execute("""
-            SELECT e.id as enrollment_id, s.id as student_id, s.first_name, s.last_name
-            FROM enrollments e
-            JOIN students s ON e.student_id = s.id
-            WHERE e.class_id = ? AND e.academic_year_id = ? AND e.status = 'active'
-            ORDER BY s.last_name ASC
-        """, (class_id, year_id))
+        query = """SELECT e.id as enrollment_id, s.id as student_id, s.first_name, s.last_name
+                   FROM enrollments e
+                   JOIN students s ON e.student_id = s.id
+                   WHERE e.class_id = ? AND e.academic_year_id = ? AND e.status = 'active'
+                   ORDER BY s.last_name ASC"""
+        cursor, conn = execute_query(query, (class_id, year_id))
         students = cursor.fetchall()
 
-        # Récupérer les absences existantes pour cette date
-        cursor.execute("""
-            SELECT enrollment_id, status, comment FROM attendances WHERE date = ?
-        """, (att_date,))
+        query = "SELECT enrollment_id, status, comment FROM attendances WHERE date = ?"
+        cursor, conn = execute_query(query, (att_date,))
         existing_attendance = {row['enrollment_id']: row for row in cursor.fetchall()}
 
         for student in students:
@@ -351,30 +309,29 @@ def take_attendance():
 @pedagogical_bp.route('/attendance/save', methods=['POST'])
 @login_required
 def save_attendance():
-    conn = get_db()
-    cursor = conn.cursor()
     att_date = request.form.get('date')
-    class_id = request.form.get('class_id')
-
+    
     for key, value in request.form.items():
         if key.startswith('status_'):
             enrollment_id = int(key.split('_')[1])
             status = value
             comment = request.form.get(f'comment_{enrollment_id}', '')
 
-            cursor, conn = execute_query("SELECT id FROM attendances WHERE enrollment_id = ? AND date = ?", (enrollment_id, att_date,))
+            query = "SELECT id FROM attendances WHERE enrollment_id = ? AND date = ?"
+            cursor, conn = execute_query(query, (enrollment_id, att_date))
             existing = cursor.fetchone()
 
             if existing:
-                cursor, conn = execute_query("UPDATE attendances SET status = ?, comment = ?, marked_by = ? WHERE id = ?", (status, comment, current_user.id, existing['id'],))
+                query = "UPDATE attendances SET status = ?, comment = ?, marked_by = ? WHERE id = ?"
+                cursor, conn = execute_query(query, (status, comment, current_user.id, existing['id']))
             else:
-                cursor.execute("""
-                    INSERT INTO attendances (uuid, enrollment_id, date, status, marked_by, comment)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                """, (str(uuid.uuid4()), enrollment_id, att_date, status, current_user.id, comment))
-
-    conn.commit()
-    conn.close()
+                query = """INSERT INTO attendances (uuid, enrollment_id, date, status, marked_by, comment)
+                           VALUES (?, ?, ?, ?, ?, ?)"""
+                cursor, conn = execute_query(query, (str(uuid.uuid4()), enrollment_id, att_date, status, current_user.id, comment))
+            
+            conn.commit()
+            conn.close()
+            
     flash('Présence enregistrée avec succès !', 'success')
     return redirect(url_for('pedagogical.take_attendance'))
 
@@ -386,65 +343,56 @@ def save_attendance():
 @login_required
 def manage_schedule():
     form = ScheduleForm()
-    conn = get_db()
-    cursor = conn.cursor()
 
     # 1. Peupler les choix des classes
-    cursor.execute("SELECT id, label FROM classes ORDER BY label ASC")
+    cursor, conn = execute_query("SELECT id, label FROM classes ORDER BY label ASC", ())
     form.class_id.choices = [(row['id'], row['label']) for row in cursor.fetchall()]
     
     # 2. Peupler les choix des matières
-    cursor.execute("SELECT id, name FROM subjects ORDER BY name ASC")
+    cursor, conn = execute_query("SELECT id, name FROM subjects ORDER BY name ASC", ())
     form.subject_id.choices = [(row['id'], row['name']) for row in cursor.fetchall()]
     
     # 3. Peupler les choix des enseignants avec leurs matières
-    cursor.execute("""
-        SELECT u.id, u.full_name, u.username,
-               GROUP_CONCAT(sub.name, ', ') as subjects
-        FROM users u
-        LEFT JOIN teacher_subjects ts ON u.id = ts.teacher_id
-        LEFT JOIN subjects sub ON ts.subject_id = sub.id
-        WHERE u.role = 'teacher'
-        GROUP BY u.id
-        ORDER BY u.full_name ASC
-    """)
+    query = """SELECT u.id, u.full_name, u.username, GROUP_CONCAT(sub.name, ', ') as subjects
+               FROM users u
+               LEFT JOIN teacher_subjects ts ON u.id = ts.teacher_id
+               LEFT JOIN subjects sub ON ts.subject_id = sub.id
+               WHERE u.role = 'teacher'
+               GROUP BY u.id
+               ORDER BY u.full_name ASC"""
+    cursor, conn = execute_query(query, ())
     
     teacher_choices = []
     for row in cursor.fetchall():
         name = row['full_name'] or row['username']
         subjects = row['subjects']
-        if subjects:
-            label = f"{name} ({subjects})"
-        else:
-            label = f"{name} (Aucune matière assignée)"
+        label = f"{name} ({subjects})" if subjects else f"{name} (Aucune matière assignée)"
         teacher_choices.append((row['id'], label))
     
     form.teacher_id.choices = teacher_choices
 
     # 4. Traitement du formulaire soumis
     if form.validate_on_submit():
-        cursor.execute("""
-            INSERT INTO schedules (uuid, class_id, subject_id, teacher_id, day_of_week, start_time, end_time, room)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
+        query = """INSERT INTO schedules (uuid, class_id, subject_id, teacher_id, day_of_week, start_time, end_time, room)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)"""
+        cursor, conn = execute_query(query, (
             str(uuid.uuid4()), form.class_id.data, form.subject_id.data, form.teacher_id.data,
             form.day_of_week.data, form.start_time.data, form.end_time.data, form.room.data
         ))
         conn.commit()
-        flash('Créneau ajouté à l\'emploi du temps.', 'success')
         conn.close()
+        flash('Créneau ajouté à l\'emploi du temps.', 'success')
         return redirect(url_for('pedagogical.manage_schedule'))
 
     # 5. Récupérer l'emploi du temps pour l'affichage
-    cursor.execute("""
-        SELECT s.id, s.day_of_week, s.start_time, s.end_time, s.room,
+    query = """SELECT s.id, s.day_of_week, s.start_time, s.end_time, s.room,
                c.label as class_name, sub.name as subject_name, u.full_name as teacher_name
         FROM schedules s
         JOIN classes c ON s.class_id = c.id
         JOIN subjects sub ON s.subject_id = sub.id
         LEFT JOIN users u ON s.teacher_id = u.id
-        ORDER BY s.day_of_week, s.start_time
-    """)
+        ORDER BY s.day_of_week, s.start_time"""
+    cursor, conn = execute_query(query, ())
     schedule_items = cursor.fetchall()
     conn.close()
 
@@ -453,9 +401,8 @@ def manage_schedule():
 @pedagogical_bp.route('/schedule/delete/<int:schedule_id>')
 @login_required
 def delete_schedule(schedule_id):
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor, conn = execute_query("DELETE FROM schedules WHERE id = ?", (schedule_id,,))
+    query = "DELETE FROM schedules WHERE id = ?"
+    cursor, conn = execute_query(query, (schedule_id,))
     conn.commit()
     conn.close()
     flash('Créneau supprimé.', 'success')
