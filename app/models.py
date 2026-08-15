@@ -1,6 +1,6 @@
 from flask_login import UserMixin
 from werkzeug.security import check_password_hash
-import sqlite3
+from app import execute_query
 
 class User(UserMixin):
     def __init__(self, id, uuid, school_id, username, password_hash, role, full_name, email, phone, photo_path, active):
@@ -26,10 +26,8 @@ class User(UserMixin):
     
     @staticmethod
     def get_by_id(user_id):
-        from app import get_db
-        conn = get_db()
-        cursor = conn.cursor()
-        cursor, conn = execute_query("SELECT * FROM users WHERE id = ?", (user_id,,))
+        query = "SELECT * FROM users WHERE id = ?"
+        cursor, conn = execute_query(query, (user_id,))
         row = cursor.fetchone()
         conn.close()
         
@@ -45,33 +43,33 @@ class User(UserMixin):
                 email=row['email'],
                 phone=row['phone'],
                 photo_path=row['photo_path'],
-                active=row['is_active']  # On mappe la colonne 'is_active' vers le paramètre 'active'
+                active=row['is_active']
             )
         return None
     
-    
     @classmethod
-def get_by_username(cls, username):
-    """Récupère un utilisateur par son username"""
-    from app import execute_query
-    
-    query = "SELECT * FROM users WHERE username = ?"
-    cursor, conn = execute_query(query, (username,))
-    user_data = cursor.fetchone()
-    conn.close()
-    
-    if user_data:
-        return cls(
-            id=user_data['id'],
-            uuid=user_data['uuid'],
-            username=user_data['username'],
-            password_hash=user_data['password_hash'],
-            role=user_data['role'],
-            full_name=user_data['full_name'],
-            email=user_data['email'],
-            school_id=user_data['school_id']
-        )
-    return None
+    def get_by_username(cls, username):
+        query = "SELECT * FROM users WHERE username = ?"
+        cursor, conn = execute_query(query, (username,))
+        user_data = cursor.fetchone()
+        conn.close()
+        
+        if user_data:
+            return cls(
+                id=user_data['id'],
+                uuid=user_data['uuid'],
+                school_id=user_data.get('school_id'),
+                username=user_data['username'],
+                password_hash=user_data['password_hash'],
+                role=user_data['role'],
+                full_name=user_data.get('full_name'),
+                email=user_data.get('email'),
+                phone=user_data.get('phone'),
+                photo_path=user_data.get('photo_path'),
+                active=user_data.get('is_active', 1)
+            )
+        return None
+
 
 class Student:
     def __init__(self, **kwargs):
@@ -80,10 +78,7 @@ class Student:
     
     @staticmethod
     def get_all(school_id):
-        from app import get_db
-        conn = get_db()
-        cursor = conn.cursor()
-        cursor.execute("""
+        query = """
             SELECT s.*, c.label as class_name, l.name as level_name
             FROM students s
             LEFT JOIN enrollments e ON s.id = e.student_id AND e.status = 'active'
@@ -91,17 +86,20 @@ class Student:
             LEFT JOIN levels l ON c.level_id = l.id
             WHERE s.school_id = ?
             ORDER BY s.last_name, s.first_name
-        """, (school_id,))
+        """
+        cursor, conn = execute_query(query, (school_id,))
         rows = cursor.fetchall()
         conn.close()
         return [Student(**dict(row)) for row in rows]
     
     @staticmethod
     def get_by_id(student_id):
-        from app import get_db
-        conn = get_db()
-        cursor = conn.cursor()
-        cursor, conn = execute_query("SELECT * FROM students WHERE id = ?", (student_id,,))
-        row = cursor.fetchone()
+        # Correction : on interroge la table 'students', pas 'users'
+        query = "SELECT * FROM students WHERE id = ?"
+        cursor, conn = execute_query(query, (student_id,))
+        student_data = cursor.fetchone()
         conn.close()
-        return Student(**dict(row)) if row else None
+        
+        if student_data:
+            return Student(**dict(student_data))
+        return None
