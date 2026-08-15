@@ -65,20 +65,27 @@ def dashboard():
     year_id = current_year['id'] if current_year else None
     
     stats = {'students': 0, 'classes': 0, 'teachers': 0}
+    
     if year_id:
-        query = "SELECT COUNT(DISTINCT e.student_id) FROM enrollments e WHERE e.academic_year_id = ? AND e.status = 'active'"
+        query = "SELECT COUNT(DISTINCT e.student_id) as count FROM enrollments e WHERE e.academic_year_id = ? AND e.status = 'active'"
         cursor, conn = execute_query(query, (year_id,))
-        stats['students'] = cursor.fetchone()[0]
+        result = cursor.fetchone()
+        stats['students'] = result['count'] if result else 0
         conn.close()
         
-    cursor, conn = execute_query("SELECT COUNT(id) FROM classes", ())
-    stats['classes'] = cursor.fetchone()[0]
+    query = "SELECT COUNT(id) as count FROM classes"
+    cursor, conn = execute_query(query, ())
+    result = cursor.fetchone()
+    stats['classes'] = result['count'] if result else 0
     conn.close()
     
-    cursor, conn = execute_query("SELECT COUNT(id) FROM users WHERE role = 'teacher'", ())
-    stats['teachers'] = cursor.fetchone()[0]
+    query = "SELECT COUNT(id) as count FROM users WHERE role = 'teacher'"
+    cursor, conn = execute_query(query, ())
+    result = cursor.fetchone()
+    stats['teachers'] = result['count'] if result else 0
     conn.close()
     
+    # Note : si votre template est dans un dossier admin, utilisez 'admin/dashboard.html'
     return render_template('dashboard.html', stats=stats, current_year=current_year)
 
 
@@ -896,14 +903,18 @@ def bulk_payment_reminders():
     
     students_overdue = []
     for student in students:
-        query = "SELECT COALESCE(SUM(amount), 0) FROM fees WHERE level_id = ? AND academic_year_id = ?"
-        cursor_fee, conn_fee = execute_query(query, (student['level_id'], year_id))
-        amount_due = cursor_fee.fetchone()[0]
+        # Récupération des frais avec accès par nom de colonne (dictionnaire)
+        query_fees = "SELECT COALESCE(SUM(amount), 0) as total_fees FROM fees WHERE level_id = ? AND academic_year_id = ?"
+        cursor_fee, conn_fee = execute_query(query_fees, (student['level_id'], year_id))
+        res_fee = cursor_fee.fetchone()
+        amount_due = res_fee['total_fees'] if res_fee else 0
         conn_fee.close()
         
-        query = "SELECT COALESCE(SUM(amount), 0) FROM payments WHERE student_id = ?"
-        cursor_pay, conn_pay = execute_query(query, (student['id'],))
-        amount_paid = cursor_pay.fetchone()[0]
+        # Récupération des paiements avec accès par nom de colonne (dictionnaire)
+        query_paid = "SELECT COALESCE(SUM(amount), 0) as total_paid FROM payments WHERE student_id = ?"
+        cursor_pay, conn_pay = execute_query(query_paid, (student['id'],))
+        res_pay = cursor_pay.fetchone()
+        amount_paid = res_pay['total_paid'] if res_pay else 0
         conn_pay.close()
         
         balance = amount_paid - amount_due
@@ -970,7 +981,7 @@ La Comptabilité"""
                           results=results,
                           current_year=current_year)
 
-
+                          
 # ============================================================
 # 14. ENVOI GROUPÉ DES BULLETINS
 # ============================================================
