@@ -6,7 +6,7 @@ import pandas as pd
 from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, Response, send_file
 from flask_login import login_required, current_user
 from app.financial.forms import FeeForm, PaymentForm
-from app import get_db
+from app import get_db, execute_query)
 from weasyprint import HTML
 
 financial_bp = Blueprint('financial', __name__, template_folder='../templates/financial')
@@ -14,7 +14,7 @@ financial_bp = Blueprint('financial', __name__, template_folder='../templates/fi
 def get_current_academic_year(school_id=1):
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, label FROM academic_years WHERE school_id = ? AND is_current = 1 LIMIT 1", (school_id,))
+    cursor, conn = execute_query("SELECT id, label FROM academic_years WHERE school_id = ? AND is_current = 1 LIMIT 1", (school_id,,))
     year = cursor.fetchone()
     conn.close()
     return year
@@ -32,7 +32,7 @@ def manage_fees():
     cursor = conn.cursor()
     current_year = get_current_academic_year(current_user.school_id or 1)
     
-    cursor.execute("SELECT id, name FROM levels WHERE school_id = ?", (current_user.school_id or 1,))
+    cursor, conn = execute_query("SELECT id, name FROM levels WHERE school_id = ?", (current_user.school_id or 1,,))
     form.level_id.choices = [(row['id'], row['name']) for row in cursor.fetchall()]
     
     if form.validate_on_submit():
@@ -169,11 +169,11 @@ def financial_status():
         student_id = student['id']
         level_id = student['level_id']
         
-        cursor.execute("SELECT COALESCE(SUM(amount), 0) as total_fees FROM fees WHERE level_id = ? AND academic_year_id = ?", (level_id, year_id))
+        cursor, conn = execute_query("SELECT COALESCE(SUM(amount), 0) as total_fees FROM fees WHERE level_id = ? AND academic_year_id = ?", (level_id, year_id,))
         fees_result = cursor.fetchone()
         amount_due = fees_result['total_fees'] if fees_result else 0
         
-        cursor.execute("SELECT COALESCE(SUM(amount), 0) as total_paid FROM payments WHERE student_id = ?", (student_id,))
+        cursor, conn = execute_query("SELECT COALESCE(SUM(amount), 0) as total_paid FROM payments WHERE student_id = ?", (student_id,,))
         paid_result = cursor.fetchone()
         amount_paid = paid_result['total_paid'] if paid_result else 0
         
@@ -242,10 +242,10 @@ def export_financial_status():
     data = []
     
     for student in students:
-        cursor.execute("SELECT COALESCE(SUM(amount), 0) FROM fees WHERE level_id = ? AND academic_year_id = ?", (student['level_id'], year_id))
+        cursor, conn = execute_query("SELECT COALESCE(SUM(amount), 0) FROM fees WHERE level_id = ? AND academic_year_id = ?", (student['level_id'], year_id,))
         amount_due = cursor.fetchone()[0]
         
-        cursor.execute("SELECT COALESCE(SUM(amount), 0) FROM payments WHERE student_id = ?", (student['id'],))
+        cursor, conn = execute_query("SELECT COALESCE(SUM(amount), 0) FROM payments WHERE student_id = ?", (student['id'],,))
         amount_paid = cursor.fetchone()[0]
         
         balance = amount_paid - amount_due

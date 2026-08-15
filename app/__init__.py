@@ -123,3 +123,14 @@ def get_db():
         conn.execute("PRAGMA journal_mode=WAL;")
         conn.execute("PRAGMA busy_timeout=5000;")
         return conn
+        def execute_query(query, params=()):
+    """Exécute une requête SQL compatible avec SQLite et PostgreSQL"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    # Si on utilise PostgreSQL, remplacer ? par %s
+    if os.getenv('DATABASE_URL'):
+        query = query.replace('?', '%s')
+    
+    cursor.execute(query, params)
+    return cursor, conn

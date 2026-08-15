@@ -1,7 +1,7 @@
 import json
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
-from app import get_db
+from app import get_db, execute_query)
 
 parent_bp = Blueprint('parent', __name__, template_folder='../templates/parent')
 
@@ -17,7 +17,7 @@ def dashboard():
     cursor = conn.cursor()
     
     # Récupérer les IDs des enfants liés à ce parent (stockés en JSON dans la table parents)
-    cursor.execute("SELECT student_ids FROM parents WHERE user_id = ?", (current_user.id,))
+    cursor, conn = execute_query("SELECT student_ids FROM parents WHERE user_id = ?", (current_user.id,,))
     parent_record = cursor.fetchone()
     
     children = []
@@ -48,7 +48,7 @@ def child_details(student_id):
     # Sécurité : vérifier que cet enfant appartient bien à ce parent
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT student_ids FROM parents WHERE user_id = ?", (current_user.id,))
+    cursor, conn = execute_query("SELECT student_ids FROM parents WHERE user_id = ?", (current_user.id,,))
     parent_record = cursor.fetchone()
     
     if not parent_record or not parent_record['student_ids']:

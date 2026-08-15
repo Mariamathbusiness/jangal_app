@@ -15,7 +15,7 @@ from werkzeug.security import generate_password_hash
 from app.admin.forms import (AcademicYearForm, LevelForm, ClassForm, StudentForm, SubjectForm, 
                              SchoolSettingsForm, SuperAdminSchoolForm, UserForm, 
                              WhatsAppNotificationForm, BulkBulletinForm)
-from app import get_db
+from app import get_db, execute_query)
 from app.whatsapp_service import WhatsAppService
 
 admin_bp = Blueprint('admin', __name__, template_folder='../templates/admin')
@@ -27,7 +27,7 @@ admin_bp = Blueprint('admin', __name__, template_folder='../templates/admin')
 def get_current_academic_year(school_id=1):
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, label FROM academic_years WHERE school_id = ? AND is_current = 1 LIMIT 1", (school_id,))
+    cursor, conn = execute_query("SELECT id, label FROM academic_years WHERE school_id = ? AND is_current = 1 LIMIT 1", (school_id,,))
     year = cursor.fetchone()
     conn.close()
     return year
@@ -69,7 +69,7 @@ def dashboard():
     
     stats = {'students': 0, 'classes': 0, 'teachers': 0}
     if year_id:
-        cursor.execute("SELECT COUNT(DISTINCT e.student_id) FROM enrollments e WHERE e.academic_year_id = ? AND e.status = 'active'", (year_id,))
+        cursor, conn = execute_query("SELECT COUNT(DISTINCT e.student_id) FROM enrollments e WHERE e.academic_year_id = ? AND e.status = 'active'", (year_id,,))
         stats['students'] = cursor.fetchone()[0]
         
     cursor.execute("SELECT COUNT(id) FROM classes")
@@ -94,7 +94,7 @@ def manage_years():
     
     if form.validate_on_submit():
         if form.is_current.data:
-            cursor.execute("UPDATE academic_years SET is_current = 0 WHERE school_id = ?", (current_user.school_id or 1,))
+            cursor, conn = execute_query("UPDATE academic_years SET is_current = 0 WHERE school_id = ?", (current_user.school_id or 1,,))
         
         cursor.execute("""INSERT INTO academic_years (uuid, school_id, label, start_date, end_date, is_current)
                           VALUES (?, ?, ?, ?, ?, ?)""", (
@@ -117,8 +117,8 @@ def manage_years():
 def set_current_year(year_id):
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("UPDATE academic_years SET is_current = 0 WHERE school_id = ?", (current_user.school_id or 1,))
-    cursor.execute("UPDATE academic_years SET is_current = 1 WHERE id = ? AND school_id = ?", (year_id, current_user.school_id or 1))
+    cursor, conn = execute_query("UPDATE academic_years SET is_current = 0 WHERE school_id = ?", (current_user.school_id or 1,,))
+    cursor, conn = execute_query("UPDATE academic_years SET is_current = 1 WHERE id = ? AND school_id = ?", (year_id, current_user.school_id or 1,))
     conn.commit()
     conn.close()
     flash('Année en cours mise à jour.', 'success')
@@ -137,13 +137,12 @@ def manage_levels():
     cursor = conn.cursor()
     
     if form.validate_on_submit():
-        cursor.execute("INSERT INTO levels (uuid, school_id, name, level_type) VALUES (?, ?, ?, ?)",
-                       (str(uuid.uuid4()), current_user.school_id or 1, form.name.data, form.level_type.data))
+        cursor, conn = execute_query("INSERT INTO levels (uuid, school_id, name, level_type) VALUES (?, ?, ?, ?)", (str(uuid.uuid4(,)), current_user.school_id or 1, form.name.data, form.level_type.data))
         conn.commit()
         flash('Niveau ajouté avec succès.', 'success')
         return redirect(url_for('admin.manage_levels'))
     
-    cursor.execute("SELECT * FROM levels WHERE school_id = ?", (current_user.school_id or 1,))
+    cursor, conn = execute_query("SELECT * FROM levels WHERE school_id = ?", (current_user.school_id or 1,,))
     levels = cursor.fetchall()
     conn.close()
     return render_template('admin/levels.html', form=form, levels=levels)
@@ -160,12 +159,11 @@ def manage_classes():
     conn = get_db()
     cursor = conn.cursor()
     
-    cursor.execute("SELECT id, name FROM levels WHERE school_id = ?", (current_user.school_id or 1,))
+    cursor, conn = execute_query("SELECT id, name FROM levels WHERE school_id = ?", (current_user.school_id or 1,,))
     form.level_id.choices = [(row['id'], row['name']) for row in cursor.fetchall()]
     
     if form.validate_on_submit():
-        cursor.execute("INSERT INTO classes (uuid, level_id, label, room, capacity) VALUES (?, ?, ?, ?, ?)",
-                       (str(uuid.uuid4()), form.level_id.data, form.label.data, form.room.data, form.capacity.data))
+        cursor, conn = execute_query("INSERT INTO classes (uuid, level_id, label, room, capacity) VALUES (?, ?, ?, ?, ?)", (str(uuid.uuid4(,)), form.level_id.data, form.label.data, form.room.data, form.capacity.data))
         conn.commit()
         flash('Classe ajoutée avec succès.', 'success')
         return redirect(url_for('admin.manage_classes'))
@@ -199,7 +197,7 @@ def manage_students():
             year_prefix = current_year['label'][:4] if current_year else '2024'
             while True:
                 new_matricule = f"ELV-{year_prefix}-{random.randint(1000, 9999)}"
-                cursor.execute("SELECT id FROM students WHERE matricule = ?", (new_matricule,))
+                cursor, conn = execute_query("SELECT id FROM students WHERE matricule = ?", (new_matricule,,))
                 if not cursor.fetchone():
                     matricule = new_matricule
                     break
@@ -234,7 +232,7 @@ def manage_students():
                           WHERE s.school_id = ? AND e.academic_year_id = ? AND e.status = 'active'
                           ORDER BY s.last_name ASC""", (current_user.school_id or 1, year_id))
     else:
-        cursor.execute("SELECT id, matricule, first_name, last_name, gender, photo_path, '' as class_name FROM students WHERE school_id = ?", (current_user.school_id or 1,))
+        cursor, conn = execute_query("SELECT id, matricule, first_name, last_name, gender, photo_path, '' as class_name FROM students WHERE school_id = ?", (current_user.school_id or 1,,))
         
     students = cursor.fetchall()
     conn.close()
@@ -262,7 +260,7 @@ def manage_subjects():
         flash('Matière ajoutée avec succès.', 'success')
         return redirect(url_for('admin.manage_subjects'))
     
-    cursor.execute("SELECT * FROM subjects WHERE school_id = ? ORDER BY name ASC", (current_user.school_id or 1,))
+    cursor, conn = execute_query("SELECT * FROM subjects WHERE school_id = ? ORDER BY name ASC", (current_user.school_id or 1,,))
     subjects = cursor.fetchall()
     conn.close()
     return render_template('admin/subjects.html', form=form, subjects=subjects)
@@ -320,12 +318,12 @@ def import_students():
 
                     class_name = str(row['Classe']).strip()
 
-                    cursor.execute("SELECT id FROM students WHERE matricule = ?", (matricule,))
+                    cursor, conn = execute_query("SELECT id FROM students WHERE matricule = ?", (matricule,,))
                     if cursor.fetchone():
                         errors.append(f"Ligne {index+2}: Le matricule '{matricule}' existe déjà.")
                         continue
 
-                    cursor.execute("SELECT id FROM classes WHERE label = ?", (class_name,))
+                    cursor, conn = execute_query("SELECT id FROM classes WHERE label = ?", (class_name,,))
                     class_row = cursor.fetchone()
                     if not class_row:
                         errors.append(f"Ligne {index+2}: La classe '{class_name}' n'existe pas.")
@@ -422,7 +420,7 @@ def manage_parents():
                     VALUES (?, ?, ?, ?)
                 """, (str(uuid.uuid4()), parent_user_id, json.dumps([int(s) for s in selected_students]), 'parent'))
             else:
-                cursor.execute("DELETE FROM parents WHERE user_id = ?", (parent_user_id,))
+                cursor, conn = execute_query("DELETE FROM parents WHERE user_id = ?", (parent_user_id,,))
             
             conn.commit()
             flash('Lien parent-enfants mis à jour.', 'success')
@@ -463,10 +461,10 @@ def link_parent(parent_user_id):
     conn = get_db()
     cursor = conn.cursor()
     
-    cursor.execute("SELECT id, username, full_name FROM users WHERE id = ?", (parent_user_id,))
+    cursor, conn = execute_query("SELECT id, username, full_name FROM users WHERE id = ?", (parent_user_id,,))
     parent = cursor.fetchone()
     
-    cursor.execute("SELECT student_ids FROM parents WHERE user_id = ?", (parent_user_id,))
+    cursor, conn = execute_query("SELECT student_ids FROM parents WHERE user_id = ?", (parent_user_id,,))
     parent_record = cursor.fetchone()
     linked_ids = []
     if parent_record and parent_record['student_ids']:
@@ -505,9 +503,9 @@ def manage_teachers():
         teacher_id = request.form.get('teacher_id')
         selected_subjects = request.form.getlist('subjects')
         
-        cursor.execute("DELETE FROM teacher_subjects WHERE teacher_id = ?", (teacher_id,))
+        cursor, conn = execute_query("DELETE FROM teacher_subjects WHERE teacher_id = ?", (teacher_id,,))
         for subject_id in selected_subjects:
-            cursor.execute("INSERT INTO teacher_subjects (teacher_id, subject_id) VALUES (?, ?)", (teacher_id, subject_id))
+            cursor, conn = execute_query("INSERT INTO teacher_subjects (teacher_id, subject_id) VALUES (?, ?)", (teacher_id, subject_id,))
             
         conn.commit()
         flash('Matières attribuées à l\'enseignant avec succès.', 'success')
@@ -524,10 +522,10 @@ def manage_teachers():
     assigned_subject_ids = []
     
     if editing_teacher_id:
-        cursor.execute("SELECT id, username, full_name FROM users WHERE id = ?", (editing_teacher_id,))
+        cursor, conn = execute_query("SELECT id, username, full_name FROM users WHERE id = ?", (editing_teacher_id,,))
         editing_teacher = cursor.fetchone()
         
-        cursor.execute("SELECT subject_id FROM teacher_subjects WHERE teacher_id = ?", (editing_teacher_id,))
+        cursor, conn = execute_query("SELECT subject_id FROM teacher_subjects WHERE teacher_id = ?", (editing_teacher_id,,))
         assigned_subject_ids = [row['subject_id'] for row in cursor.fetchall()]
 
     conn.close()
@@ -547,7 +545,7 @@ def school_settings():
     cursor = conn.cursor()
     school_id = current_user.school_id or 1
     
-    cursor.execute("SELECT * FROM schools WHERE id = ?", (school_id,))
+    cursor, conn = execute_query("SELECT * FROM schools WHERE id = ?", (school_id,,))
     school = cursor.fetchone()
     
     if school:
@@ -640,7 +638,7 @@ def manage_schools():
     
     edit_id = request.args.get('edit', type=int)
     if edit_id:
-        cursor.execute("SELECT * FROM schools WHERE id = ?", (edit_id,))
+        cursor, conn = execute_query("SELECT * FROM schools WHERE id = ?", (edit_id,,))
         school_to_edit = cursor.fetchone()
         if school_to_edit:
             school_to_edit = dict(school_to_edit)
@@ -668,7 +666,7 @@ def delete_school(school_id):
     else:
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute("DELETE FROM schools WHERE id = ?", (school_id,))
+        cursor, conn = execute_query("DELETE FROM schools WHERE id = ?", (school_id,,))
         conn.commit()
         conn.close()
         flash("Établissement supprimé.", "success")
@@ -750,7 +748,7 @@ def manage_users():
     
     edit_id = request.args.get('edit', type=int)
     if edit_id:
-        cursor.execute("SELECT * FROM users WHERE id = ?", (edit_id,))
+        cursor, conn = execute_query("SELECT * FROM users WHERE id = ?", (edit_id,,))
         user_to_edit = cursor.fetchone()
         if user_to_edit:
             user_to_edit = dict(user_to_edit)
@@ -777,14 +775,14 @@ def delete_user(user_id):
         conn = get_db()
         cursor = conn.cursor()
         if current_user.role == 'admin':
-            cursor.execute("SELECT school_id FROM users WHERE id = ?", (user_id,))
+            cursor, conn = execute_query("SELECT school_id FROM users WHERE id = ?", (user_id,,))
             user_school = cursor.fetchone()
             if user_school and user_school['school_id'] != current_user.school_id:
                 flash("Action non autorisée.", "danger")
                 conn.close()
                 return redirect(url_for('admin.manage_users'))
         
-        cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        cursor, conn = execute_query("DELETE FROM users WHERE id = ?", (user_id,,))
         conn.commit()
         conn.close()
         flash("Utilisateur supprimé.", "success")
@@ -923,11 +921,10 @@ def bulk_payment_reminders():
     
     students_overdue = []
     for student in students:
-        cursor.execute("SELECT COALESCE(SUM(amount), 0) FROM fees WHERE level_id = ? AND academic_year_id = ?",
-                      (student['level_id'], year_id))
+        cursor, conn = execute_query("SELECT COALESCE(SUM(amount), 0) FROM fees WHERE level_id = ? AND academic_year_id = ?", (student['level_id'], year_id,))
         amount_due = cursor.fetchone()[0]
         
-        cursor.execute("SELECT COALESCE(SUM(amount), 0) FROM payments WHERE student_id = ?", (student['id'],))
+        cursor, conn = execute_query("SELECT COALESCE(SUM(amount), 0) FROM payments WHERE student_id = ?", (student['id'],,))
         amount_paid = cursor.fetchone()[0]
         
         balance = amount_paid - amount_due
@@ -1140,7 +1137,7 @@ def adhesion_confirmation(adhesion_id):
     """Page de confirmation après soumission"""
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM adhesions WHERE id = ?", (adhesion_id,))
+    cursor, conn = execute_query("SELECT * FROM adhesions WHERE id = ?", (adhesion_id,,))
     adhesion = cursor.fetchone()
     conn.close()
     
@@ -1164,7 +1161,7 @@ def manage_adhesions():
     if status_filter == 'all':
         cursor.execute("SELECT * FROM adhesions ORDER BY created_at DESC")
     else:
-        cursor.execute("SELECT * FROM adhesions WHERE status = ? ORDER BY created_at DESC", (status_filter,))
+        cursor, conn = execute_query("SELECT * FROM adhesions WHERE status = ? ORDER BY created_at DESC", (status_filter,,))
     
     adhesions = cursor.fetchall()
     conn.close()
@@ -1192,7 +1189,7 @@ def update_adhesion_status(adhesion_id, status):
     
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("UPDATE adhesions SET status = ? WHERE id = ?", (status, adhesion_id))
+    cursor, conn = execute_query("UPDATE adhesions SET status = ? WHERE id = ?", (status, adhesion_id,))
     conn.commit()
     conn.close()
     
@@ -1207,7 +1204,7 @@ def delete_adhesion(adhesion_id):
     """Supprimer une adhésion"""
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM adhesions WHERE id = ?", (adhesion_id,))
+    cursor, conn = execute_query("DELETE FROM adhesions WHERE id = ?", (adhesion_id,,))
     conn.commit()
     conn.close()
     flash("Adhésion supprimée.", "success")

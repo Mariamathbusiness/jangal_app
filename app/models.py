@@ -29,7 +29,7 @@ class User(UserMixin):
         from app import get_db
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+        cursor, conn = execute_query("SELECT * FROM users WHERE id = ?", (user_id,,))
         row = cursor.fetchone()
         conn.close()
         
@@ -49,30 +49,29 @@ class User(UserMixin):
             )
         return None
     
-    @staticmethod
-    def get_by_username(username):
-        from app import get_db
-        conn = get_db()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
-        row = cursor.fetchone()
-        conn.close()
-        
-        if row:
-            return User(
-                id=row['id'],
-                uuid=row['uuid'],
-                school_id=row['school_id'],
-                username=row['username'],
-                password_hash=row['password_hash'],
-                role=row['role'],
-                full_name=row['full_name'],
-                email=row['email'],
-                phone=row['phone'],
-                photo_path=row['photo_path'],
-                active=row['is_active']  # On mappe la colonne 'is_active' vers le paramètre 'active'
-            )
-        return None
+    
+    @classmethod
+def get_by_username(cls, username):
+    """Récupère un utilisateur par son username"""
+    from app import execute_query
+    
+    query = "SELECT * FROM users WHERE username = ?"
+    cursor, conn = execute_query(query, (username,))
+    user_data = cursor.fetchone()
+    conn.close()
+    
+    if user_data:
+        return cls(
+            id=user_data['id'],
+            uuid=user_data['uuid'],
+            username=user_data['username'],
+            password_hash=user_data['password_hash'],
+            role=user_data['role'],
+            full_name=user_data['full_name'],
+            email=user_data['email'],
+            school_id=user_data['school_id']
+        )
+    return None
 
 class Student:
     def __init__(self, **kwargs):
@@ -102,7 +101,7 @@ class Student:
         from app import get_db
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM students WHERE id = ?", (student_id,))
+        cursor, conn = execute_query("SELECT * FROM students WHERE id = ?", (student_id,,))
         row = cursor.fetchone()
         conn.close()
         return Student(**dict(row)) if row else None

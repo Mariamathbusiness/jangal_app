@@ -5,7 +5,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from flask_login import login_required, current_user
 
 from app.pedagogical.forms import GradeSelectionForm, AttendanceForm, ScheduleForm
-from app import get_db
+from app import get_db, execute_query)
 from weasyprint import HTML
 
 pedagogical_bp = Blueprint('pedagogical', __name__, template_folder='../templates/pedagogical')
@@ -14,7 +14,7 @@ pedagogical_bp = Blueprint('pedagogical', __name__, template_folder='../template
 def get_current_academic_year(school_id=1):
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, label FROM academic_years WHERE school_id = ? AND is_current = 1 LIMIT 1", (school_id,))
+    cursor, conn = execute_query("SELECT id, label FROM academic_years WHERE school_id = ? AND is_current = 1 LIMIT 1", (school_id,,))
     year = cursor.fetchone()
     conn.close()
     return year
@@ -362,12 +362,11 @@ def save_attendance():
             status = value
             comment = request.form.get(f'comment_{enrollment_id}', '')
 
-            cursor.execute("SELECT id FROM attendances WHERE enrollment_id = ? AND date = ?", (enrollment_id, att_date))
+            cursor, conn = execute_query("SELECT id FROM attendances WHERE enrollment_id = ? AND date = ?", (enrollment_id, att_date,))
             existing = cursor.fetchone()
 
             if existing:
-                cursor.execute("UPDATE attendances SET status = ?, comment = ?, marked_by = ? WHERE id = ?", 
-                               (status, comment, current_user.id, existing['id']))
+                cursor, conn = execute_query("UPDATE attendances SET status = ?, comment = ?, marked_by = ? WHERE id = ?", (status, comment, current_user.id, existing['id'],))
             else:
                 cursor.execute("""
                     INSERT INTO attendances (uuid, enrollment_id, date, status, marked_by, comment)
@@ -456,7 +455,7 @@ def manage_schedule():
 def delete_schedule(schedule_id):
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM schedules WHERE id = ?", (schedule_id,))
+    cursor, conn = execute_query("DELETE FROM schedules WHERE id = ?", (schedule_id,,))
     conn.commit()
     conn.close()
     flash('Créneau supprimé.', 'success')
