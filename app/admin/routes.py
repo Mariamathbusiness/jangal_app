@@ -757,14 +757,19 @@ def manage_users():
         return redirect(url_for('admin.manage_users'))
 
     # Liste des utilisateurs (filtrée par école pour les admins normaux)
+        # Liste des utilisateurs (filtrée par école pour les admins normaux)
     if current_user.role == 'super_admin':
+        # Le Super Admin voit TOUS les utilisateurs de toutes les écoles
         query = """SELECT u.id, u.username, u.full_name, u.email, u.role, s.name as school_name
                    FROM users u LEFT JOIN schools s ON u.school_id = s.id
                    ORDER BY s.name, u.full_name ASC"""
         cursor, conn = execute_query(query, ())
     else:
+        # 🔒 SÉCURITÉ : Un admin normal ne voit QUE les utilisateurs de son école
+        # ET il ne voit PAS les super_admins
         query = """SELECT u.id, u.username, u.full_name, u.email, u.role, 'Mon École' as school_name
-                   FROM users u WHERE u.school_id = ?
+                   FROM users u 
+                   WHERE u.school_id = ? AND u.role != 'super_admin'
                    ORDER BY u.full_name ASC"""
         cursor, conn = execute_query(query, (current_user.school_id,))
         
