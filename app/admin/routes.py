@@ -684,19 +684,44 @@ def delete_school(school_id):
 def manage_users():
     form = UserForm()
     
+    # 🔒 SÉCURITÉ : Filtrer les rôles disponibles selon l'utilisateur connecté
     if current_user.role == 'super_admin':
+        # Le Super Admin voit TOUS les rôles
+        form.role.choices = [
+            ('super_admin', 'Super Administrateur'),
+            ('admin', 'Administrateur / Directeur'),
+            ('teacher', 'Enseignant'),
+            ('accountant', 'Comptable'),
+            ('parent', 'Parent')
+        ]
+        # Il peut aussi choisir parmi toutes les écoles
         cursor, conn = execute_query("SELECT id, name FROM schools ORDER BY name ASC", ())
         form.school_id.choices = [(row['id'], row['name']) for row in cursor.fetchall()]
         conn.close()
     else:
+        # ❌ Un admin normal ne voit PAS le rôle "super_admin"
+        form.role.choices = [
+            ('admin', 'Administrateur / Directeur'),
+            ('teacher', 'Enseignant'),
+            ('accountant', 'Comptable'),
+            ('parent', 'Parent')
+        ]
+        # Il ne peut créer des utilisateurs que dans SA propre école
         form.school_id.choices = [(current_user.school_id, "Mon Établissement")]
         form.school_id.data = current_user.school_id
 
     if form.validate_on_submit():
         user_id = request.form.get('user_id', type=int)
+        
+        # 🔒 SÉCURITÉ BACKEND : Empêcher l'escalade de privilèges
+        if current_user.role != 'super_admin' and form.role.data == 'super_admin':
+            flash("⛔ Action interdite : vous ne pouvez pas créer un Super Administrateur.", "danger")
+            return redirect(url_for('admin.manage_users'))
+        
         target_school_id = form.school_id.data if current_user.role == 'super_admin' else current_user.school_id
 
         if user_id:
+            # --- MODIFICATION ---
             if form.password.data:
                 query = """UPDATE users SET username = ?, password_hash = ?, full_name = ?, email = ?, phone = ?, role = ?, school_id = ?
                            WHERE id = ?"""
@@ -711,10 +736,11 @@ def manage_users():
                     form.username.data, form.full_name.data, form.email.data,
                     form.phone.data, form.role.data, target_school_id, user_id
                 ))
-            flash('Utilisateur mis à jour avec succès.', 'success')
+            flash('✅ Utilisateur mis à jour avec succès.', 'success')
         else:
+            # --- CRÉATION ---
             if not form.password.data:
-                flash('Le mot de passe est obligatoire pour créer un nouvel utilisateur.', 'danger')
+                flash('⚠️ Le mot de passe est obligatoire pour créer un nouvel utilisateur.', 'danger')
                 return redirect(url_for('admin.manage_users'))
                 
             query = """INSERT INTO users (uuid, school_id, username, password_hash, full_name, email, phone, role)
@@ -724,12 +750,13 @@ def manage_users():
                 generate_password_hash(form.password.data), form.full_name.data, 
                 form.email.data, form.phone.data, form.role.data
             ))
-            flash('Nouvel utilisateur créé avec succès.', 'success')
+            flash('✅ Nouvel utilisateur créé avec succès.', 'success')
             
         conn.commit()
         conn.close()
         return redirect(url_for('admin.manage_users'))
 
+    # Liste des utilisateurs (filtrée par école pour les admins normaux)
     if current_user.role == 'super_admin':
         query = """SELECT u.id, u.username, u.full_name, u.email, u.role, s.name as school_name
                    FROM users u LEFT JOIN schools s ON u.school_id = s.id
@@ -743,12 +770,20 @@ def manage_users():
         
     users_list = cursor.fetchall()
     
+    # Mode édition
     edit_id = request.args.get('edit', type=int)
     if edit_id:
         cursor, conn = execute_query("SELECT * FROM users WHERE id = ?", (edit_id,))
         user_to_edit = cursor.fetchone()
         if user_to_edit:
             user_to_edit = dict(user_to_edit)
+            
+            # 🔒 SÉCURITÉ : Un admin ne peut pas modifier un super_admin
+            if current_user.role != 'super_admin' and user_to_edit['role'] == 'super_admin':
+                flash("⛔ Action interdite : vous ne pouvez pas modifier un Super Administrateur.", "danger")
+                conn.close()
+                return redirect(url_for('admin.manage_users'))
+            
             form.username.data = user_to_edit['username']
             form.full_name.data = user_to_edit['full_name']
             form.email.data = user_to_edit['email']
@@ -767,20 +802,34 @@ def manage_users():
 @admin_required
 def delete_user(user_id):
     if user_id == current_user.id:
-        flash("Vous ne pouvez pas supprimer votre propre compte.", "danger")
+        flash("⚠️ Vous ne pouvez pas supprimer votre propre compte.", "danger")
     else:
-        if current_user.role == 'admin':
-            cursor, conn = execute_query("SELECT school_id FROM users WHERE id = ?", (user_id,))
-            user_school = cursor.fetchone()
+        # 🔒 SÉCURITÉ : Vérifier que l'utilisateur cible existe et est accessible
+        cursor, conn = execute_query("SELECT school_id, role FROM users WHERE id = ?", (user_id,))
+        target_user = cursor.fetchone()
+        
+        if not target_user:
+            flash("❌ Utilisateur introuvable.", "danger")
             conn.close()
-            if user_school and user_school['school_id'] != current_user.school_id:
-                flash("Action non autorisée.", "danger")
-                return redirect(url_for('admin.manage_users'))
+            return redirect(url_for('admin.manage_users'))
+        
+        # Un admin normal ne peut pas supprimer un super_admin
+        if current_user.role != 'super_admin' and target_user['role'] == 'super_admin':
+            flash("⛔ Action interdite : vous ne pouvez pas supprimer un Super Administrateur.", "danger")
+            conn.close()
+            return redirect(url_for('admin.manage_users'))
+        
+        # Un admin normal ne peut supprimer que dans sa propre école
+        if current_user.role != 'super_admin' and target_user['school_id'] != current_user.school_id:
+            flash("⛔ Action non autorisée.", "danger")
+            conn.close()
+            return redirect(url_for('admin.manage_users'))
         
         cursor, conn = execute_query("DELETE FROM users WHERE id = ?", (user_id,))
         conn.commit()
         conn.close()
-        flash("Utilisateur supprimé.", "success")
+        flash("✅ Utilisateur supprimé.", "success")
+    
     return redirect(url_for('admin.manage_users'))
 
 
