@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid mt-4">
+    <h2>⏱️ Heures enseignées</h2>
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-primary text-white">Enregistrer des heures</div>
+                <div class="card-body">
+                    <form method="POST">
+                        {{ form.hidden_tag() }}
+                        <div class="mb-3">{{ form.teacher_id.label }} {{ form.teacher_id(class="form-select") }}</div>
+                        <div class="mb-3">{{ form.class_id.label }} {{ form.class_id(class="form-select") }}</div>
+                        <div class="mb-3">{{ form.subject_id.label }} {{ form.subject_id(class="form-select") }}</div>
+                        <div class="mb-3">{{ form.hours_count.label }} {{ form.hours_count(class="form-control") }}</div>
+                        <div class="mb-3">{{ form.teaching_date.label }} {{ form.teaching_date(class="form-control", type="date") }}</div>
+                        <div class="mb-3">{{ form.comment.label }} {{ form.comment(class="form-control", rows="2") }}</div>
+                        {{ form.submit(class="btn btn-primary") }}
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-dark text-white">Historique récent</div>
+                <div class="card-body">
+                    <table class="table table-sm table-striped">
+                        <thead><tr><th>Date</th><th>Prof</th><th>Matière</th><th>Heures</th></tr></thead>
+                        <tbody>
+                            {% for h in hours_list %}
+                            <tr>
+                                <td>{{ h.teaching_date }}</td>
+                                <td>{{ h.teacher_name }}</td>
+                                <td>{{ h.subject_name }}</td>
+                                <td><strong>{{ h.hours_count }}h</strong></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

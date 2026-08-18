@@ -56,3 +56,44 @@
     </div>
 </div>
 {% endblock %}
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid mt-4">
+    <h2>💰 Taux horaire des enseignants</h2>
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-primary text-white">Définir un taux</div>
+                <div class="card-body">
+                    <form method="POST">
+                        {{ form.hidden_tag() }}
+                        <div class="mb-3">{{ form.teacher_id.label }} {{ form.teacher_id(class="form-select") }}</div>
+                        <div class="mb-3">{{ form.hourly_rate.label }} {{ form.hourly_rate(class="form-control") }}</div>
+                        <div class="mb-3">{{ form.effective_date.label }} {{ form.effective_date(class="form-control", type="date") }}</div>
+                        {{ form.submit(class="btn btn-primary") }}
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-dark text-white">Taux enregistrés</div>
+                <div class="card-body">
+                    <table class="table table-striped">
+                        <thead><tr><th>Enseignant</th><th>Taux horaire</th><th>Date d'effet</th></tr></thead>
+                        <tbody>
+                            {% for rate in rates %}
+                            <tr>
+                                <td>{{ rate.teacher_name }}</td>
+                                <td><strong>{{ "{:,.0f}".format(rate.hourly_rate) }} FCFA</strong></td>
+                                <td>{{ rate.effective_date }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

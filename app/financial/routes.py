@@ -479,8 +479,12 @@ def manage_expenses():
         flash('✅ Dépense enregistrée.', 'success')
         return redirect(url_for('financial.manage_expenses'))
     
+    # 🔒 CORRECTION : JOIN avec students pour filtrer les paiements par école
     cursor_in, conn_in = execute_query(
-        "SELECT COALESCE(SUM(amount), 0) as total FROM payments WHERE school_id = ?",
+        """SELECT COALESCE(SUM(p.amount), 0) as total 
+           FROM payments p 
+           JOIN students s ON p.student_id = s.id 
+           WHERE s.school_id = ?""",
         (school_id,)
     )
     total_income = cursor_in.fetchone()['total']
@@ -537,9 +541,12 @@ def closing_report():
         start_date = today.replace(day=1).strftime('%Y-%m-%d')
         end_date = today.strftime('%Y-%m-%d')
     
+    # 🔒 CORRECTION : JOIN avec students pour les paiements de la période
     cursor, conn = execute_query(
-        """SELECT COALESCE(SUM(amount), 0) as total 
-           FROM payments WHERE school_id = ? AND payment_date BETWEEN ? AND ?""",
+        """SELECT COALESCE(SUM(p.amount), 0) as total 
+           FROM payments p 
+           JOIN students s ON p.student_id = s.id 
+           WHERE s.school_id = ? AND p.payment_date BETWEEN ? AND ?""",
         (school_id, start_date, end_date)
     )
     period_income = cursor.fetchone()['total']
@@ -563,8 +570,12 @@ def closing_report():
     period_expenses = sum(row['total'] for row in expenses_by_category)
     conn.close()
     
+    # 🔒 CORRECTION : JOIN avec students pour le revenu global
     cursor, conn = execute_query(
-        "SELECT COALESCE(SUM(amount), 0) as total FROM payments WHERE school_id = ?",
+        """SELECT COALESCE(SUM(p.amount), 0) as total 
+           FROM payments p 
+           JOIN students s ON p.student_id = s.id 
+           WHERE s.school_id = ?""",
         (school_id,)
     )
     global_income = cursor.fetchone()['total']
