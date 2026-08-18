@@ -123,9 +123,6 @@ def generate_receipt(payment_id):
         headers={"Content-Disposition": f"attachment; filename=Recu_{payment_info['receipt_number']}.pdf"}
     )
 
-# ============================================================
-# SITUATION FINANCIÈRE PAR CLASSE
-# ============================================================
 @financial_bp.route('/financial_status')
 @login_required
 def financial_status():
@@ -280,7 +277,7 @@ def export_financial_status():
     )
 
 # ============================================================
-# GESTION FINANCIÈRE AMÉLIORÉE
+# GESTION FINANCIÈRE AMÉLIORÉE (Taux, Heures, Paiements, Dépenses)
 # ============================================================
 
 @financial_bp.route('/financial/teacher_rates', methods=['GET', 'POST'])
