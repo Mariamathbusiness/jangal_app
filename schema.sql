@@ -2,12 +2,16 @@ CREATE TABLE IF NOT EXISTS schools (
     id SERIAL PRIMARY KEY,
     uuid TEXT UNIQUE NOT NULL,
     name TEXT NOT NULL,
+    director_name TEXT,               -- <-- AJOUTÉ
     address TEXT,
     phone TEXT,
     email TEXT,
     logo_path TEXT,
     level_types TEXT,
     grading_config TEXT,
+    start_date DATE,                  -- <-- AJOUTÉ
+    end_date DATE,                    -- <-- AJOUTÉ
+    status TEXT DEFAULT 'active',     -- <-- AJOUTÉ
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     synced INTEGER DEFAULT 0
@@ -234,3 +238,24 @@ CREATE INDEX IF NOT EXISTS idx_students_matricule ON students(matricule);
 CREATE INDEX IF NOT EXISTS idx_grades_enrollment ON grades(enrollment_id);
 CREATE INDEX IF NOT EXISTS idx_payments_student ON payments(student_id);
 CREATE INDEX IF NOT EXISTS idx_schedules_class ON schedules(class_id);
+CREATE TABLE IF NOT EXISTS adhesions (
+    id SERIAL PRIMARY KEY,
+    uuid TEXT UNIQUE NOT NULL,
+    school_name TEXT,
+    school_type TEXT,
+    student_count TEXT,
+    address TEXT,
+    creation_year TEXT,
+    contact_name TEXT,
+    contact_role TEXT,
+    contact_phone TEXT,
+    contact_email TEXT,
+    current_system TEXT,
+    challenges TEXT,
+    features_interest TEXT,
+    start_timeline TEXT,
+    has_computer TEXT,
+    message TEXT,
+    status TEXT DEFAULT 'new',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

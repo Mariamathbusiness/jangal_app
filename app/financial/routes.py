@@ -278,3 +278,256 @@ def export_financial_status():
         as_attachment=True,
         download_name=filename
     )
+    @admin_bp.route('/financial/teacher_rates', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def manage_teacher_rates():
+    form = TeacherRateForm()
+    school_id = current_user.school_id or 1
+    
+    # Charger les choix des enseignants
+    cursor, conn = execute_query(
+        "SELECT id, full_name FROM users WHERE role = 'teacher' AND school_id = ? ORDER BY full_name",
+        (school_id,)
+    )
+    form.teacher_id.choices = [(row['id'], row['full_name']) for row in cursor.fetchall()]
+    conn.close()
+    
+    if form.validate_on_submit():
+        query = """INSERT INTO teacher_rates (uuid, teacher_id, school_id, hourly_rate, effective_date)
+                   VALUES (?, ?, ?, ?, ?)"""
+        cursor, conn = execute_query(query, (
+            str(uuid.uuid4()), form.teacher_id.data, school_id,
+            form.hourly_rate.data, form.effective_date.data
+        ))
+        conn.commit()
+        conn.close()
+        flash('✅ Taux horaire enregistré avec succès.', 'success')
+        return redirect(url_for('financial.manage_teacher_rates'))
+    
+    # Liste des taux actuels
+    query = """SELECT tr.id, tr.hourly_rate, tr.effective_date, u.full_name as teacher_name
+               FROM teacher_rates tr
+               JOIN users u ON tr.teacher_id = u.id
+               WHERE tr.school_id = ?
+               ORDER BY u.full_name, tr.effective_date DESC"""
+    cursor, conn = execute_query(query, (school_id,))
+    rates = cursor.fetchall()
+    conn.close()
+    
+    return render_template('financial/teacher_rates.html', form=form, rates=rates)
+
+    @admin_bp.route('/financial/teaching_hours', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def manage_teaching_hours():
+    form = TeachingHoursForm()
+    school_id = current_user.school_id or 1
+    
+    # Charger les choix
+    cursor, conn = execute_query(
+        "SELECT id, full_name FROM users WHERE role = 'teacher' AND school_id = ? ORDER BY full_name",
+        (school_id,)
+    )
+    form.teacher_id.choices = [(row['id'], row['full_name']) for row in cursor.fetchall()]
+    
+    cursor, conn = execute_query("SELECT id, label FROM classes ORDER BY label", ())
+    form.class_id.choices = [(row['id'], row['label']) for row in cursor.fetchall()]
+    
+    cursor, conn = execute_query("SELECT id, name FROM subjects ORDER BY name", ())
+    form.subject_id.choices = [(row['id'], row['name']) for row in cursor.fetchall()]
+    conn.close()
+    
+    if form.validate_on_submit():
+        current_year = get_current_academic_year(school_id)
+        year_id = current_year['id'] if current_year else None
+        
+        query = """INSERT INTO teaching_hours 
+                   (uuid, teacher_id, school_id, class_id, subject_id, hours_count, teaching_date, academic_year_id, comment)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"""
+        cursor, conn = execute_query(query, (
+            str(uuid.uuid4()), form.teacher_id.data, school_id,
+            form.class_id.data, form.subject_id.data, form.hours_count.data,
+            form.teaching_date.data, year_id, form.comment.data
+        ))
+        conn.commit()
+        conn.close()
+        flash('✅ Heures enseignées enregistrées.', 'success')
+        return redirect(url_for('financial.manage_teaching_hours'))
+    
+    # Historique récent
+    query = """SELECT th.id, th.hours_count, th.teaching_date, th.comment,
+                      u.full_name as teacher_name, c.label as class_name, sub.name as subject_name
+               FROM teaching_hours th
+               JOIN users u ON th.teacher_id = u.id
+               LEFT JOIN classes c ON th.class_id = c.id
+               LEFT JOIN subjects sub ON th.subject_id = sub.id
+               WHERE th.school_id = ?
+               ORDER BY th.teaching_date DESC LIMIT 50"""
+    cursor, conn = execute_query(query, (school_id,))
+    hours_list = cursor.fetchall()
+    conn.close()
+    
+    return render_template('financial/teaching_hours.html', form=form, hours_list=hours_list)
+
+    @admin_bp.route('/financial/teacher_payments', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def manage_teacher_payments():
+    form = TeacherPaymentForm()
+    school_id = current_user.school_id or 1
+    
+    # Charger les enseignants
+    cursor, conn = execute_query(
+        "SELECT id, full_name FROM users WHERE role = 'teacher' AND school_id = ? ORDER BY full_name",
+        (school_id,)
+    )
+    form.teacher_id.choices = [(row['id'], row['full_name']) for row in cursor.fetchall()]
+    conn.close()
+    
+    if form.validate_on_submit():
+        query = """INSERT INTO teacher_payments 
+                   (uuid, teacher_id, school_id, amount, payment_date, payment_method, 
+                    period_start, period_end, comment, received_by)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
+        cursor, conn = execute_query(query, (
+            str(uuid.uuid4()), form.teacher_id.data, school_id,
+            form.amount.data, form.payment_date.data, form.payment_method.data,
+            form.period_start.data, form.period_end.data, form.comment.data, current_user.id
+        ))
+        conn.commit()
+        conn.close()
+        flash('✅ Paiement enregistré.', 'success')
+        return redirect(url_for('financial.manage_teacher_payments'))
+    
+    # Calcul du dû pour chaque prof
+    query_teachers = """SELECT id, full_name FROM users 
+                        WHERE role = 'teacher' AND school_id = ? ORDER BY full_name"""
+    cursor, conn = execute_query(query_teachers, (school_id,))
+    teachers = cursor.fetchall()
+    
+    teachers_balance = []
+    for teacher in teachers:
+        # Récupérer le taux horaire le plus récent
+        cursor_rate, conn_rate = execute_query(
+            """SELECT hourly_rate FROM teacher_rates 
+               WHERE teacher_id = ? AND school_id = ? 
+               ORDER BY effective_date DESC LIMIT 1""",
+            (teacher['id'], school_id)
+        )
+        rate_row = cursor_rate.fetchone()
+        hourly_rate = rate_row['hourly_rate'] if rate_row else 0
+        conn_rate.close()
+        
+        # Total des heures enseignées
+        cursor_hours, conn_hours = execute_query(
+            """SELECT COALESCE(SUM(hours_count), 0) as total_hours 
+               FROM teaching_hours WHERE teacher_id = ? AND school_id = ?""",
+            (teacher['id'], school_id)
+        )
+        total_hours = cursor_hours.fetchone()['total_hours']
+        conn_hours.close()
+        
+        # Total déjà payé
+        cursor_paid, conn_paid = execute_query(
+            """SELECT COALESCE(SUM(amount), 0) as total_paid 
+               FROM teacher_payments WHERE teacher_id = ? AND school_id = ?""",
+            (teacher['id'], school_id)
+        )
+        total_paid = cursor_paid.fetchone()['total_paid']
+        conn_paid.close()
+        
+        amount_due = (total_hours * hourly_rate) - total_paid
+        
+        teachers_balance.append({
+            'teacher_id': teacher['id'],
+            'teacher_name': teacher['full_name'],
+            'hourly_rate': hourly_rate,
+            'total_hours': total_hours,
+            'total_earned': total_hours * hourly_rate,
+            'total_paid': total_paid,
+            'balance': amount_due
+        })
+    
+    # Historique des paiements
+    cursor, conn = execute_query(
+        """SELECT tp.id, tp.amount, tp.payment_date, tp.payment_method, tp.comment,
+                  u.full_name as teacher_name
+           FROM teacher_payments tp
+           JOIN users u ON tp.teacher_id = u.id
+           WHERE tp.school_id = ?
+           ORDER BY tp.payment_date DESC LIMIT 30""",
+        (school_id,)
+    )
+    payments_history = cursor.fetchall()
+    conn.close()
+    
+    return render_template('financial/teacher_payments.html', 
+                          form=form, 
+                          teachers_balance=teachers_balance,
+                          payments_history=payments_history)
+
+@admin_bp.route('/financial/expenses', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def manage_expenses():
+    form = ExpenseForm()
+    school_id = current_user.school_id or 1
+    
+    if form.validate_on_submit():
+        query = """INSERT INTO expenses 
+                   (uuid, school_id, category, description, amount, expense_date, payment_method, approved_by)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)"""
+        cursor, conn = execute_query(query, (
+            str(uuid.uuid4()), school_id, form.category.data,
+            form.description.data, form.amount.data, form.expense_date.data,
+            form.payment_method.data, current_user.id
+        ))
+        conn.commit()
+        conn.close()
+        flash('✅ Dépense enregistrée.', 'success')
+        return redirect(url_for('financial.manage_expenses'))
+    
+    # Calcul du solde de caisse
+    # Entrées = Paiements des élèves
+    cursor_in, conn_in = execute_query(
+        "SELECT COALESCE(SUM(amount), 0) as total FROM payments WHERE school_id = ?",
+        (school_id,)
+    )
+    total_income = cursor_in.fetchone()['total']
+    conn_in.close()
+    
+    # Sorties = Paiements profs + Dépenses
+    cursor_teach, conn_teach = execute_query(
+        "SELECT COALESCE(SUM(amount), 0) as total FROM teacher_payments WHERE school_id = ?",
+        (school_id,)
+    )
+    total_teacher_payments = cursor_teach.fetchone()['total']
+    conn_teach.close()
+    
+    cursor_exp, conn_exp = execute_query(
+        "SELECT COALESCE(SUM(amount), 0) as total FROM expenses WHERE school_id = ?",
+        (school_id,)
+    )
+    total_expenses = cursor_exp.fetchone()['total']
+    conn_exp.close()
+    
+    cash_balance = total_income - total_teacher_payments - total_expenses
+    
+    # Liste des dépenses récentes
+    cursor, conn = execute_query(
+        """SELECT id, category, description, amount, expense_date, payment_method
+           FROM expenses WHERE school_id = ?
+           ORDER BY expense_date DESC LIMIT 50""",
+        (school_id,)
+    )
+    expenses_list = cursor.fetchall()
+    conn.close()
+    
+    return render_template('financial/expenses.html', 
+                          form=form, 
+                          expenses_list=expenses_list,
+                          cash_balance=cash_balance,
+                          total_income=total_income,
+                          total_teacher_payments=total_teacher_payments,
+                          total_expenses=total_expenses)

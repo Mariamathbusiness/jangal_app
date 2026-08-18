@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid mt-4">
+    <h2>💸 Dépenses courantes & Solde de caisse</h2>
+    
+    <!-- Cartes de résumé -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-white bg-success">
+                <div class="card-body">
+                    <h6>💰 Total Encaissé</h6>
+                    <h3>{{ "{:,.0f}".format(total_income) }} FCFA</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-info">
+                <div class="card-body">
+                    <h6>👨‍🏫 Paiements Profs</h6>
+                    <h3>{{ "{:,.0f}".format(total_teacher_payments) }} FCFA</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-warning">
+                <div class="card-body">
+                    <h6>🧾 Dépenses</h6>
+                    <h3>{{ "{:,.0f}".format(total_expenses) }} FCFA</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white {% if cash_balance >= 0 %}bg-primary{% else %}bg-danger{% endif %}">
+                <div class="card-body">
+                    <h6>🏦 Solde de Caisse</h6>
+                    <h3>{{ "{:,.0f}".format(cash_balance) }} FCFA</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-5">
+            <div class="card">
+                <div class="card-header bg-dark text-white">Nouvelle dépense</div>
+                <div class="card-body">
+                    <form method="POST">
+                        {{ form.hidden_tag() }}
+                        <div class="mb-3">
+                            {{ form.category.label(class="form-label") }}
+                            {{ form.category(class="form-select") }}
+                        </div>
+                        <div class="mb-3">
+                            {{ form.description.label(class="form-label") }}
+                            {{ form.description(class="form-control") }}
+                        </div>
+                        <div class="mb-3">
+                            {{ form.amount.label(class="form-label") }}
+                            {{ form.amount(class="form-control") }}
+                        </div>
+                        <div class="mb-3">
+                            {{ form.expense_date.label(class="form-label") }}
+                            {{ form.expense_date(class="form-control", type="date") }}
+                        </div>
+                        <div class="mb-3">
+                            {{ form.payment_method.label(class="form-label") }}
+                            {{ form.payment_method(class="form-select") }}
+                        </div>
+                        {{ form.submit(class="btn btn-dark") }}
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-7">
+            <div class="card">
+                <div class="card-header bg-secondary text-white">Historique des dépenses</div>
+                <div class="card-body">
+                    <table class="table table-sm table-striped">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Catégorie</th>
+                                <th>Description</th>
+                                <th>Montant</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for e in expenses_list %}
+                            <tr>
+                                <td>{{ e.expense_date }}</td>
+                                <td><span class="badge bg-secondary">{{ e.category }}</span></td>
+                                <td>{{ e.description }}</td>
+                                <td><strong>{{ "{:,.0f}".format(e.amount) }} FCFA</strong></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid mt-4">
+    <h2>💵 Paiement des enseignants</h2>
+    
+    <!-- Tableau de bord des soldes -->
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">Situation des enseignants</div>
+        <div class="card-body">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Enseignant</th>
+                        <th>Taux horaire</th>
+                        <th>Heures totales</th>
+                        <th>Total gagné</th>
+                        <th>Déjà payé</th>
+                        <th>Reste à payer</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in teachers_balance %}
+                    <tr class="{% if t.balance > 0 %}table-warning{% elif t.balance < 0 %}table-danger{% else %}table-success{% endif %}">
+                        <td><strong>{{ t.teacher_name }}</strong></td>
+                        <td>{{ "{:,.0f}".format(t.hourly_rate) }} FCFA/h</td>
+                        <td>{{ t.total_hours }}h</td>
+                        <td>{{ "{:,.0f}".format(t.total_earned) }} FCFA</td>
+                        <td>{{ "{:,.0f}".format(t.total_paid) }} FCFA</td>
+                        <td>
+                            {% if t.balance > 0 %}
+                                <span class="badge bg-warning text-dark">{{ "{:,.0f}".format(t.balance) }} FCFA</span>
+                            {% elif t.balance < 0 %}
+                                <span class="badge bg-danger">Trop-perçu: {{ "{:,.0f}".format(-t.balance) }} FCFA</span>
+                            {% else %}
+                                <span class="badge bg-success">✅ Soldé</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Formulaire de paiement -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">Enregistrer un paiement</div>
+                <div class="card-body">
+                    <form method="POST">
+                        {{ form.hidden_tag() }}
+                        <div class="mb-3">
+                            {{ form.teacher_id.label(class="form-label") }}
+                            {{ form.teacher_id(class="form-select") }}
+                        </div>
+                        <div class="mb-3">
+                            {{ form.amount.label(class="form-label") }}
+                            {{ form.amount(class="form-control") }}
+                        </div>
+                        <div class="mb-3">
+                            {{ form.payment_date.label(class="form-label") }}
+                            {{ form.payment_date(class="form-control", type="date") }}
+                        </div>
+                        <div class="mb-3">
+                            {{ form.payment_method.label(class="form-label") }}
+                            {{ form.payment_method(class="form-select") }}
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                {{ form.period_start.label(class="form-label") }}
+                                {{ form.period_start(class="form-control", type="date") }}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                {{ form.period_end.label(class="form-label") }}
+                                {{ form.period_end(class="form-control", type="date") }}
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            {{ form.comment.label(class="form-label") }}
+                            {{ form.comment(class="form-control", rows="2") }}
+                        </div>
+                        {{ form.submit(class="btn btn-success") }}
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-dark text-white">Historique des paiements</div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Enseignant</th>
+                                <th>Montant</th>
+                                <th>Mode</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in payments_history %}
+                            <tr>
+                                <td>{{ p.payment_date }}</td>
+                                <td>{{ p.teacher_name }}</td>
+                                <td><strong>{{ "{:,.0f}".format(p.amount) }} FCFA</strong></td>
+                                <td>{{ p.payment_method }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
