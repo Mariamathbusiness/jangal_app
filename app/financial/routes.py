@@ -1,11 +1,11 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, date
 from io import BytesIO
 import pandas as pd
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, Response, send_file
 from flask_login import login_required, current_user
-from app.financial.forms import FeeForm, PaymentForm
+from app.financial.forms import FeeForm, PaymentForm, TeacherRateForm, TeachingHoursForm, TeacherPaymentForm, ExpenseForm
 from app import get_db, execute_query
 from weasyprint import HTML
 
@@ -278,13 +278,13 @@ def export_financial_status():
         as_attachment=True,
         download_name=filename
     )
+
 # ============================================================
 # GESTION FINANCIÈRE AMÉLIORÉE
 # ============================================================
 
-@admin_bp.route('/financial/teacher_rates', methods=['GET', 'POST'])
+@financial_bp.route('/financial/teacher_rates', methods=['GET', 'POST'])
 @login_required
-@admin_required
 def manage_teacher_rates():
     form = TeacherRateForm()
     school_id = current_user.school_id or 1
@@ -320,9 +320,8 @@ def manage_teacher_rates():
     return render_template('financial/teacher_rates.html', form=form, rates=rates)
 
 
-@admin_bp.route('/financial/teaching_hours', methods=['GET', 'POST'])
+@financial_bp.route('/financial/teaching_hours', methods=['GET', 'POST'])
 @login_required
-@admin_required
 def manage_teaching_hours():
     form = TeachingHoursForm()
     school_id = current_user.school_id or 1
@@ -372,9 +371,8 @@ def manage_teaching_hours():
     return render_template('financial/teaching_hours.html', form=form, hours_list=hours_list)
 
 
-@admin_bp.route('/financial/teacher_payments', methods=['GET', 'POST'])
+@financial_bp.route('/financial/teacher_payments', methods=['GET', 'POST'])
 @login_required
-@admin_required
 def manage_teacher_payments():
     form = TeacherPaymentForm()
     school_id = current_user.school_id or 1
@@ -464,9 +462,8 @@ def manage_teacher_payments():
                           payments_history=payments_history)
 
 
-@admin_bp.route('/financial/expenses', methods=['GET', 'POST'])
+@financial_bp.route('/financial/expenses', methods=['GET', 'POST'])
 @login_required
-@admin_required
 def manage_expenses():
     form = ExpenseForm()
     school_id = current_user.school_id or 1
@@ -526,14 +523,9 @@ def manage_expenses():
                           total_expenses=total_expenses)
 
 
-@admin_bp.route('/financial/closing_report')
+@financial_bp.route('/financial/closing_report')
 @login_required
-@admin_required
 def closing_report():
-    from datetime import date
-    from weasyprint import HTML
-    from flask import Response
-    
     school_id = current_user.school_id or 1
     
     cursor, conn = execute_query("SELECT * FROM schools WHERE id = ?", (school_id,))
