@@ -278,14 +278,17 @@ def export_financial_status():
         as_attachment=True,
         download_name=filename
     )
-    @admin_bp.route('/financial/teacher_rates', methods=['GET', 'POST'])
+# ============================================================
+# GESTION FINANCIÈRE AMÉLIORÉE
+# ============================================================
+
+@admin_bp.route('/financial/teacher_rates', methods=['GET', 'POST'])
 @login_required
 @admin_required
 def manage_teacher_rates():
     form = TeacherRateForm()
     school_id = current_user.school_id or 1
     
-    # Charger les choix des enseignants
     cursor, conn = execute_query(
         "SELECT id, full_name FROM users WHERE role = 'teacher' AND school_id = ? ORDER BY full_name",
         (school_id,)
@@ -305,7 +308,6 @@ def manage_teacher_rates():
         flash('✅ Taux horaire enregistré avec succès.', 'success')
         return redirect(url_for('financial.manage_teacher_rates'))
     
-    # Liste des taux actuels
     query = """SELECT tr.id, tr.hourly_rate, tr.effective_date, u.full_name as teacher_name
                FROM teacher_rates tr
                JOIN users u ON tr.teacher_id = u.id
@@ -317,14 +319,14 @@ def manage_teacher_rates():
     
     return render_template('financial/teacher_rates.html', form=form, rates=rates)
 
-    @admin_bp.route('/financial/teaching_hours', methods=['GET', 'POST'])
+
+@admin_bp.route('/financial/teaching_hours', methods=['GET', 'POST'])
 @login_required
 @admin_required
 def manage_teaching_hours():
     form = TeachingHoursForm()
     school_id = current_user.school_id or 1
     
-    # Charger les choix
     cursor, conn = execute_query(
         "SELECT id, full_name FROM users WHERE role = 'teacher' AND school_id = ? ORDER BY full_name",
         (school_id,)
@@ -355,7 +357,6 @@ def manage_teaching_hours():
         flash('✅ Heures enseignées enregistrées.', 'success')
         return redirect(url_for('financial.manage_teaching_hours'))
     
-    # Historique récent
     query = """SELECT th.id, th.hours_count, th.teaching_date, th.comment,
                       u.full_name as teacher_name, c.label as class_name, sub.name as subject_name
                FROM teaching_hours th
@@ -370,14 +371,14 @@ def manage_teaching_hours():
     
     return render_template('financial/teaching_hours.html', form=form, hours_list=hours_list)
 
-    @admin_bp.route('/financial/teacher_payments', methods=['GET', 'POST'])
+
+@admin_bp.route('/financial/teacher_payments', methods=['GET', 'POST'])
 @login_required
 @admin_required
 def manage_teacher_payments():
     form = TeacherPaymentForm()
     school_id = current_user.school_id or 1
     
-    # Charger les enseignants
     cursor, conn = execute_query(
         "SELECT id, full_name FROM users WHERE role = 'teacher' AND school_id = ? ORDER BY full_name",
         (school_id,)
@@ -400,7 +401,6 @@ def manage_teacher_payments():
         flash('✅ Paiement enregistré.', 'success')
         return redirect(url_for('financial.manage_teacher_payments'))
     
-    # Calcul du dû pour chaque prof
     query_teachers = """SELECT id, full_name FROM users 
                         WHERE role = 'teacher' AND school_id = ? ORDER BY full_name"""
     cursor, conn = execute_query(query_teachers, (school_id,))
@@ -408,7 +408,6 @@ def manage_teacher_payments():
     
     teachers_balance = []
     for teacher in teachers:
-        # Récupérer le taux horaire le plus récent
         cursor_rate, conn_rate = execute_query(
             """SELECT hourly_rate FROM teacher_rates 
                WHERE teacher_id = ? AND school_id = ? 
@@ -419,7 +418,6 @@ def manage_teacher_payments():
         hourly_rate = rate_row['hourly_rate'] if rate_row else 0
         conn_rate.close()
         
-        # Total des heures enseignées
         cursor_hours, conn_hours = execute_query(
             """SELECT COALESCE(SUM(hours_count), 0) as total_hours 
                FROM teaching_hours WHERE teacher_id = ? AND school_id = ?""",
@@ -428,7 +426,6 @@ def manage_teacher_payments():
         total_hours = cursor_hours.fetchone()['total_hours']
         conn_hours.close()
         
-        # Total déjà payé
         cursor_paid, conn_paid = execute_query(
             """SELECT COALESCE(SUM(amount), 0) as total_paid 
                FROM teacher_payments WHERE teacher_id = ? AND school_id = ?""",
@@ -449,7 +446,6 @@ def manage_teacher_payments():
             'balance': amount_due
         })
     
-    # Historique des paiements
     cursor, conn = execute_query(
         """SELECT tp.id, tp.amount, tp.payment_date, tp.payment_method, tp.comment,
                   u.full_name as teacher_name
@@ -466,6 +462,7 @@ def manage_teacher_payments():
                           form=form, 
                           teachers_balance=teachers_balance,
                           payments_history=payments_history)
+
 
 @admin_bp.route('/financial/expenses', methods=['GET', 'POST'])
 @login_required
@@ -488,8 +485,6 @@ def manage_expenses():
         flash('✅ Dépense enregistrée.', 'success')
         return redirect(url_for('financial.manage_expenses'))
     
-    # Calcul du solde de caisse
-    # Entrées = Paiements des élèves
     cursor_in, conn_in = execute_query(
         "SELECT COALESCE(SUM(amount), 0) as total FROM payments WHERE school_id = ?",
         (school_id,)
@@ -497,7 +492,6 @@ def manage_expenses():
     total_income = cursor_in.fetchone()['total']
     conn_in.close()
     
-    # Sorties = Paiements profs + Dépenses
     cursor_teach, conn_teach = execute_query(
         "SELECT COALESCE(SUM(amount), 0) as total FROM teacher_payments WHERE school_id = ?",
         (school_id,)
@@ -514,7 +508,6 @@ def manage_expenses():
     
     cash_balance = total_income - total_teacher_payments - total_expenses
     
-    # Liste des dépenses récentes
     cursor, conn = execute_query(
         """SELECT id, category, description, amount, expense_date, payment_method
            FROM expenses WHERE school_id = ?
@@ -531,3 +524,99 @@ def manage_expenses():
                           total_income=total_income,
                           total_teacher_payments=total_teacher_payments,
                           total_expenses=total_expenses)
+
+
+@admin_bp.route('/financial/closing_report')
+@login_required
+@admin_required
+def closing_report():
+    from datetime import date
+    from weasyprint import HTML
+    from flask import Response
+    
+    school_id = current_user.school_id or 1
+    
+    cursor, conn = execute_query("SELECT * FROM schools WHERE id = ?", (school_id,))
+    school = cursor.fetchone()
+    conn.close()
+    
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    
+    if not start_date or not end_date:
+        today = date.today()
+        start_date = today.replace(day=1).strftime('%Y-%m-%d')
+        end_date = today.strftime('%Y-%m-%d')
+    
+    cursor, conn = execute_query(
+        """SELECT COALESCE(SUM(amount), 0) as total 
+           FROM payments WHERE school_id = ? AND payment_date BETWEEN ? AND ?""",
+        (school_id, start_date, end_date)
+    )
+    period_income = cursor.fetchone()['total']
+    conn.close()
+    
+    cursor, conn = execute_query(
+        """SELECT COALESCE(SUM(amount), 0) as total 
+           FROM teacher_payments WHERE school_id = ? AND payment_date BETWEEN ? AND ?""",
+        (school_id, start_date, end_date)
+    )
+    period_teacher_payments = cursor.fetchone()['total']
+    conn.close()
+    
+    cursor, conn = execute_query(
+        """SELECT category, COALESCE(SUM(amount), 0) as total 
+           FROM expenses WHERE school_id = ? AND expense_date BETWEEN ? AND ?
+           GROUP BY category ORDER BY total DESC""",
+        (school_id, start_date, end_date)
+    )
+    expenses_by_category = cursor.fetchall()
+    period_expenses = sum(row['total'] for row in expenses_by_category)
+    conn.close()
+    
+    cursor, conn = execute_query(
+        "SELECT COALESCE(SUM(amount), 0) as total FROM payments WHERE school_id = ?",
+        (school_id,)
+    )
+    global_income = cursor.fetchone()['total']
+    conn.close()
+    
+    cursor, conn = execute_query(
+        """SELECT COALESCE(SUM(amount), 0) as total 
+           FROM teacher_payments WHERE school_id = ?""",
+        (school_id,)
+    )
+    global_teacher_payments = cursor.fetchone()['total']
+    conn.close()
+    
+    cursor, conn = execute_query(
+        "SELECT COALESCE(SUM(amount), 0) as total FROM expenses WHERE school_id = ?",
+        (school_id,)
+    )
+    global_expenses = cursor.fetchone()['total']
+    conn.close()
+    
+    global_balance = global_income - global_teacher_payments - global_expenses
+    
+    context = {
+        'school': school,
+        'start_date': start_date,
+        'end_date': end_date,
+        'period_income': period_income,
+        'period_teacher_payments': period_teacher_payments,
+        'period_expenses': period_expenses,
+        'expenses_by_category': expenses_by_category,
+        'period_balance': period_income - period_teacher_payments - period_expenses,
+        'global_balance': global_balance
+    }
+    
+    if request.args.get('print') == '1':
+        html_content = render_template('financial/closing_report.html', **context)
+        pdf_file = HTML(string=html_content).write_pdf()
+        return Response(
+            pdf_file,
+            mimetype='application/pdf',
+            headers={"Content-Disposition": f"attachment; filename=Brouillard_Cloture_{start_date}_to_{end_date}.pdf"}
+        )
+    
+    return render_template('financial/closing_report.html', **context)
